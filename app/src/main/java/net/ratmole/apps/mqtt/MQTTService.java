@@ -63,7 +63,7 @@ public class MQTTService extends Service implements MqttCallback
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
 	public int nCount	= 0;
-	private static final int 		MQTT_KEEP_ALIVE = 10000; // KeepAlive Interval in MS
+	private static final int 		MQTT_KEEP_ALIVE = 120000; // KeepAlive Interval in MS
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive"; // Topic format for KeepAlives
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 }; // Keep Alive message to send
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2; // Default Keepalive QOS
