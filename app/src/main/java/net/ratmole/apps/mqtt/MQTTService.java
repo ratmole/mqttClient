@@ -63,7 +63,7 @@ public class MQTTService extends Service implements MqttCallback
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
 	public int nCount	= 0;
-	private static final int 		MQTT_KEEP_ALIVE = 120000; // KeepAlive Interval in MS
+	private static final int 		MQTT_KEEP_ALIVE = 10000; // KeepAlive Interval in MS
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive"; // Topic format for KeepAlives
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 }; // Keep Alive message to send
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2; // Default Keepalive QOS
@@ -82,7 +82,7 @@ public class MQTTService extends Service implements MqttCallback
 	private static final String 	DEVICE_ID_FORMAT = "andr_%s"; // Device ID Format, add any prefix you'd like
 	// Note: There is a 23 character limit you will get
 	// An NPE if you go over that limit
-	private boolean mStarted = false; // Is the Client started?
+	private boolean mStarted,isReconnecting = false; // Is the Client started?
 	private String mDeviceId;		  // Device ID, Secure.ANDROID_ID
 	private Handler 	mConnHandler;	  // Seperate Handler thread for networking
 
@@ -211,17 +211,9 @@ public class MQTTService extends Service implements MqttCallback
 						reconnectIfNecessary();
 					}
 				} else if (action.equals(ACTION_FORCE_RECONNECT)) {
-					Log.i(DEBUG_TAG, "connection lost, Reconnecting (ACTION_FORCE_RECONNECT)");
-					//Toast.makeText(MQTTService.this, "Connection lost, Reconnecting", Toast.LENGTH_LONG).show();
-					mClient = null;
-					mStarted = false;
-
-					try {
-						Thread.sleep(MQTT_KEEP_ALIVE / 4);
-					} catch (InterruptedException ex) {
-						ex.printStackTrace();
+					if (isNetworkAvailable()) {
+						forceReconnect();
 					}
-					start();
 				}
 			}
 
@@ -314,30 +306,22 @@ public class MQTTService extends Service implements MqttCallback
 					String[] topics = TOPIC.split(",");
 
 					for (String topic : topics) {
+						Log.i(DEBUG_TAG, "subscribing to: " +topic);
 						mClient.subscribe(topic, 2);
 					}
 
-					mClient.setCallback(MQTTService.this);
+						mClient.setCallback(MQTTService.this);
 
 					mStarted = true; // Service is now connected
 					statusIcon(true);
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed starting keep alives");
 
 					startKeepAlives();
+					isReconnecting = false;
 
 				} catch (Exception e) {
 					e.printStackTrace();
-					Log.i(DEBUG_TAG, "connection lost, Reconnecting (connect)");
-					//Toast.makeText(MQTTService.this, "Connection lost, Reconnecting", Toast.LENGTH_LONG).show();
-					mClient = null;
-					mStarted = false;
-					statusIcon(false);
-					try {
-						Thread.sleep(MQTT_KEEP_ALIVE / 4);
-					} catch (InterruptedException ex) {
-						ex.printStackTrace();
-					}
-					start();
+					forceReconnect();
 
 				}
 
@@ -389,18 +373,7 @@ public class MQTTService extends Service implements MqttCallback
 				kFailed = true;
 			}
 				if (kFailed) {
-					Log.i(DEBUG_TAG, "connection lost (finally), Reconnecting");
-					//Toast.makeText(MQTTService.this, "Connection lost, Reconnecting (keepAlive)", Toast.LENGTH_LONG).show();
-					mClient = null;
-					mStarted = false;
-					statusIcon(false);
-
-					try {
-						Thread.sleep(MQTT_KEEP_ALIVE / 4);
-					} catch (InterruptedException exx) {
-						exx.printStackTrace();
-					}
-					start();
+					forceReconnect();
 				}
 		}
 	}
@@ -497,15 +470,7 @@ public class MQTTService extends Service implements MqttCallback
 		statusIcon(false);
 
 		if(isNetworkAvailable()) {
-			mClient = null;
-			mStarted = false;
-
-			try {
-				Thread.sleep(MQTT_KEEP_ALIVE/4);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-			start();
+			forceReconnect();
 		}
 	}
 	/**
@@ -572,6 +537,27 @@ public class MQTTService extends Service implements MqttCallback
 		notificationManager.notify(-1, n);
 
 		}
+
+	private void forceReconnect(){
+		if (isReconnecting) {
+			return;
+		}
+
+		isReconnecting = true;
+		Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
+
+		stopKeepAlives();
+		mClient = null;
+		mStarted = false;
+		statusIcon(false);
+		try {
+			Thread.sleep(MQTT_KEEP_ALIVE / 4);
+		} catch (InterruptedException ex) {
+			ex.printStackTrace();
+		}
+		start();
+
+	}
 	/**
 	 * MqttConnectivityException Exception class
 	 */
