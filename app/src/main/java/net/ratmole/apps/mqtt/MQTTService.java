@@ -239,7 +239,7 @@ public class MQTTService extends Service implements MqttCallback
 		if(hasScheduledKeepAlives()) {
 			stopKeepAlives();
 		}
-
+		sanityTimerStart();
 		connect();
 		registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 	}
@@ -320,7 +320,6 @@ public class MQTTService extends Service implements MqttCallback
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed starting keep alives");
 
 					startKeepAlives();
-					sanityTimerStart();
 					isReconnecting = false;
 
 				} catch (Exception e) {
