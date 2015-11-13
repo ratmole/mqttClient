@@ -10,8 +10,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-
-
 public class MainActivity extends Activity {
 
 	private static String PREFS = "mqtt-prefs";
@@ -61,7 +59,6 @@ public class MainActivity extends Activity {
 						vPort.getText().toString().length()		>	0
 				){
 
-
 					SharedPreferences.Editor editor = sharedPref.edit();
 					editor.putString(HOSTNAME, vHostname.getText().toString());
 					editor.putString(TOPIC, vTopic.getText().toString());
@@ -73,24 +70,11 @@ public class MainActivity extends Activity {
 
 					final Intent intent = new Intent(getApplicationContext(), MQTTService.class);
 					startService(intent);
-
-
 					finish();
 				} else {
 					Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port", Toast.LENGTH_LONG).show();
 				}
-
-
 			}
 		});
-
-
-
-
-
 	}
-
-
-
-
 }

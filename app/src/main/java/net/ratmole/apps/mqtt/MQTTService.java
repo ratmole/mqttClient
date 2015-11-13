@@ -77,6 +77,7 @@ public class MQTTService extends Service implements MqttCallback
 	private static final String 	ACTION_KEEPALIVE= DEBUG_TAG + ".KEEPALIVE";
 	private static final String 	ACTION_RECONNECT= DEBUG_TAG + ".RECONNECT";
 	private static final String 	ACTION_FORCE_RECONNECT= DEBUG_TAG + ".FORCE_RECONNECT";
+	private static final String 	ACTION_SANITY= DEBUG_TAG + ".SANITY";
 
 
 	private static final String 	DEVICE_ID_FORMAT = "andr_%s"; // Device ID Format, add any prefix you'd like
@@ -172,6 +173,12 @@ public class MQTTService extends Service implements MqttCallback
 		mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
 	}
 
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+		sanityTimerStop();
+	}
+
 	/**
 	 * Service onStartCommand
 	 * Handles the action passed via the Intent
@@ -205,6 +212,11 @@ public class MQTTService extends Service implements MqttCallback
 					}
 				} else if (action.equals(ACTION_FORCE_RECONNECT)) {
 					if (isNetworkAvailable()) {
+						forceReconnect();
+					}
+				}
+				else if (action.equals(ACTION_SANITY)) {
+					if (isNetworkAvailable() && !isConnected()) {
 						forceReconnect();
 					}
 				}
@@ -256,6 +268,7 @@ public class MQTTService extends Service implements MqttCallback
 					mStarted = false;
 
 					stopKeepAlives();
+					sanityTimerStop();
 					statusIcon(false);
 				}
 			});
@@ -296,17 +309,18 @@ public class MQTTService extends Service implements MqttCallback
 					String[] topics = TOPIC.split(",");
 
 					for (String topic : topics) {
-						Log.i(DEBUG_TAG, "subscribing to: " +topic);
+						Log.i(DEBUG_TAG, "subscribing to: " + topic);
 						mClient.subscribe(topic, 2);
 					}
 
-						mClient.setCallback(MQTTService.this);
+					mClient.setCallback(MQTTService.this);
 
 					mStarted = true; // Service is now connected
 					statusIcon(true);
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed starting keep alives");
 
 					startKeepAlives();
+					sanityTimerStart();
 					isReconnecting = false;
 
 				} catch (Exception e) {
@@ -338,6 +352,21 @@ public class MQTTService extends Service implements MqttCallback
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_KEEPALIVE);
 		PendingIntent pi = PendingIntent.getService(this, 0, i , 0);
+		mAlarmManager.cancel(pi);
+	}
+
+	private void sanityTimerStart() {
+		Intent i = new Intent();
+		i.setClass(this, MQTTService.class);
+		i.setAction(ACTION_SANITY);
+		PendingIntent pi = PendingIntent.getService(this, 1, i, 0);
+		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + MQTT_KEEP_ALIVE, MQTT_KEEP_ALIVE, pi);
+	}
+
+	private void sanityTimerStop() {
+		Intent i = new Intent();
+		i.setClass(this, MQTTService.class);
+		PendingIntent pi = PendingIntent.getService(this, 1, i , 0);
 		mAlarmManager.cancel(pi);
 	}
 
@@ -573,10 +602,7 @@ public class MQTTService extends Service implements MqttCallback
 			boolean reachable = (returnVal == 0);
 
 			if (reachable) {
-				System.out.println("Internet access");
 				return reachable;
-			} else {
-				System.out.println("No Internet access");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

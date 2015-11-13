@@ -50,10 +50,7 @@ public class NetWatcher extends BroadcastReceiver {
             boolean reachable = (returnVal == 0);
 
             if (reachable) {
-                System.out.println("Internet access");
-                return reachable;
-            } else {
-                System.out.println("No Internet access");
+               return reachable;
             }
         } catch (Exception e) {
             e.printStackTrace();
