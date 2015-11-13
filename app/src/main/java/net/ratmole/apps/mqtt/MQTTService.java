@@ -194,6 +194,7 @@ public class MQTTService extends Service implements MqttCallback
 		if (intent != null) {
 			action = intent.getAction();
 		}
+				//Log.i(DEBUG_TAG, " "+action);
 
 			if (action == null) {
 				Log.i(DEBUG_TAG, "Starting service with no action\n Probably from a crash");
@@ -239,7 +240,6 @@ public class MQTTService extends Service implements MqttCallback
 		if(hasScheduledKeepAlives()) {
 			stopKeepAlives();
 		}
-		sanityTimerStart();
 		connect();
 		registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 	}
@@ -326,6 +326,8 @@ public class MQTTService extends Service implements MqttCallback
 					e.printStackTrace();
 					forceReconnect();
 				}
+				sanityTimerStart();
+
 			}
 		});
 	}
