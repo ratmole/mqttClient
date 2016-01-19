@@ -5,19 +5,30 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.app.TaskStackBuilder;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
+import android.opengl.Matrix;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.util.Base64;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
+import android.view.WindowManager;
+import android.widget.RemoteViews;
 
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
@@ -35,6 +46,9 @@ import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Locale;
 
 
@@ -516,23 +530,56 @@ public class MQTTService extends Service implements MqttCallback
 		final Vibrator vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
 		vibrator.vibrate(500);
 
-		Intent intent = new Intent(this, MQTTService.class);
-		PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, 0);
 
-		Notification n  = new Notification.Builder(this)
-				.setContentTitle("New msg @ " + topic)
-				.setContentIntent(pIntent)
-				.setSmallIcon(R.drawable.m2mgreen)
-				.setStyle(new Notification.BigTextStyle().bigText(message.toString()))
-				.setAutoCancel(false).build();
 
-		n.ledARGB = 0xff00ff00;
-		n.ledOnMS = 100;
-		n.ledOffMS = 100;
-		n.flags |= Notification.FLAG_SHOW_LIGHTS;
+		if (topic.toLowerCase().contains("pic")) {
 
-		NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-		notificationManager.notify(nCount, n);
+			byte[] decodedString = Base64.decode(message.toString(), Base64.DEFAULT);
+			Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+
+			Notification.Builder n = new Notification.Builder(this)
+					.setSmallIcon(R.drawable.m2mgreen)
+					.setContentTitle("Image  @ " + topic)
+					.setStyle(new Notification.BigPictureStyle()
+							.bigPicture(decodedByte));
+
+			n.setLights(0xff00ff00, 100, 100);
+
+			Intent notifyIntent = new Intent(this, ImageActivity.class);
+			notifyIntent.putExtra("Image", message.toString());
+
+			notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+			PendingIntent notifyPendingIntent =
+					PendingIntent.getActivity(
+							this,
+							0,
+							notifyIntent,
+							PendingIntent.FLAG_UPDATE_CURRENT
+					);
+
+			n.setContentIntent(notifyPendingIntent);
+			n.setAutoCancel(true);
+
+			NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+			notificationManager.notify(nCount, n.build());
+
+		} else {
+
+			Notification.Builder n = new Notification.Builder(this)
+					.setContentTitle("New msg @ " + topic)
+					.setSmallIcon(R.drawable.m2mgreen)
+					.setStyle(new Notification.BigTextStyle().bigText(message.toString()))
+					.setAutoCancel(false);
+
+			n.setLights(0xff00ff00, 100, 100);
+
+			NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+			notificationManager.notify(nCount, n.build());
+		}
+
+
+
 		nCount++;
 
 	}
@@ -617,4 +664,6 @@ public class MQTTService extends Service implements MqttCallback
 	private class MqttConnectivityException extends Exception {
 		private static final long serialVersionUID = -1234567890123456780L;
 	}
+
+
 }
