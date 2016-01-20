@@ -17,7 +17,6 @@ import android.net.NetworkInfo;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
-import android.os.Vibrator;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
@@ -515,18 +514,16 @@ public class MQTTService extends Service implements MqttCallback
 	public void messageArrived(String topic, MqttMessage message)
 			throws Exception {
 
-		System.out.println("Message Arrived: " + topic + " - " + message);
-		final Vibrator vibrator = (Vibrator) getApplicationContext().getSystemService(Context.VIBRATOR_SERVICE);
-		vibrator.vibrate(500);
-
-
-
 		if (topic.toLowerCase().contains("pic")) {
 
-			byte[] decodedString = Base64.decode(message.toString(), Base64.DEFAULT);
-			Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+			byte[] decodedString = null;
+			Bitmap decodedByte = null;
+
+			decodedString = Base64.decode(message.toString(), Base64.DEFAULT);
+			decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
 
 			Notification.Builder n = new Notification.Builder(this)
+					.setVibrate(new long[]{500, 1000})
 					.setSmallIcon(R.drawable.m2mgreen)
 					.setContentTitle("Image  @ " + topic)
 					.setStyle(new Notification.BigPictureStyle()
@@ -559,16 +556,14 @@ public class MQTTService extends Service implements MqttCallback
 					.setContentTitle("New msg @ " + topic)
 					.setSmallIcon(R.drawable.m2mgreen)
 					.setStyle(new Notification.BigTextStyle().bigText(message.toString()))
-					.setAutoCancel(false);
+					.setAutoCancel(false)
+					.setVibrate(new long[] { 500, 1000});
 
 			n.setLights(0xff00ff00, 100, 100);
 
 			NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 			notificationManager.notify(nCount, n.build());
 		}
-
-
-
 		nCount++;
 
 	}
