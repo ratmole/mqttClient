@@ -518,7 +518,7 @@ public class MQTTService extends Service implements MqttCallback
 
 			byte[] decodedString = null;
 			Bitmap decodedByte = null;
-
+			Intent notifyIntent = null;
 			decodedString = Base64.decode(message.toString(), Base64.DEFAULT);
 			decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
 
@@ -531,7 +531,7 @@ public class MQTTService extends Service implements MqttCallback
 
 			n.setLights(0xff00ff00, 100, 100);
 
-			Intent notifyIntent = new Intent(this, ImageActivity.class);
+			notifyIntent = new Intent(this, ImageActivity.class);
 			notifyIntent.putExtra("Image", message.toString());
 
 			notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -539,7 +539,7 @@ public class MQTTService extends Service implements MqttCallback
 			PendingIntent notifyPendingIntent =
 					PendingIntent.getActivity(
 							this,
-							0,
+							nCount,
 							notifyIntent,
 							PendingIntent.FLAG_UPDATE_CURRENT
 					);
