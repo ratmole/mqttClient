@@ -525,8 +525,6 @@ public class MQTTService extends Service implements MqttCallback
 	public void messageArrived(String topic, MqttMessage message)
 			throws Exception {
 
-
-
 		Intent notifyIntent = null;
 		String type = "text";
 
@@ -602,6 +600,10 @@ public class MQTTService extends Service implements MqttCallback
 		}
 
 	private void forceReconnect(){
+
+		if (isConnected()){
+			return;
+		}
 
 		isReconnecting = true;
 		Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
