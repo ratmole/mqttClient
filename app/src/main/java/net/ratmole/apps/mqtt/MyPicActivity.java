@@ -26,7 +26,7 @@ public class MyPicActivity extends Activity {
         String data = intent.getStringExtra("data");
 
         ImageView mqttData;
-        mqttData = (ImageView) findViewById(R.id.mqttMessage);
+        mqttData = (ImageView) findViewById(R.id.imageV);
 
 
         byte[] decodedString = Base64.decode(data.toString(), Base64.DEFAULT);
