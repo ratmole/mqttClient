@@ -6,10 +6,15 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Base64;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.widget.ImageView;
+import android.graphics.Matrix;
 
 public class MyPicActivity extends Activity {
     public static final String 		DEBUG_TAG = "MqttService";
+
+    private ImageView mqttData;
 
     private MessagesDataSource datasource;
 
@@ -17,7 +22,6 @@ public class MyPicActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_pic);
 
         datasource = new MessagesDataSource(this);
         datasource.open();
@@ -25,14 +29,14 @@ public class MyPicActivity extends Activity {
         Intent intent = getIntent();
         String data = intent.getStringExtra("data");
 
-        ImageView mqttData;
-        mqttData = (ImageView) findViewById(R.id.imageV);
-
-
-        byte[] decodedString = Base64.decode(data.toString(), Base64.DEFAULT);
+        byte[] decodedString = Base64.decode(data, Base64.DEFAULT);
         final Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
 
-        mqttData.setImageBitmap(decodedByte);
+
+        TouchImageView img = new TouchImageView(this);
+        img.setImageBitmap(decodedByte);
+        img.setMaxZoom(4f);
+        setContentView(img);
     }
 
    @Override

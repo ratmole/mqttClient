@@ -43,7 +43,9 @@
         </receiver>
 
 
-        <service android:name="MQTTService" android:enabled="true"></service>
+        <service android:name="MQTTService" android:enabled="true">
+            
+        </service>
         <activity
             android:name=".MyTextActivity"
             android:theme="@style/custumStyleDialog"
@@ -54,7 +56,6 @@
 
         <activity
             android:name=".MyPicActivity"
-            android:theme="@style/custumStyleDialog"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:excludeFromRecents="true">
