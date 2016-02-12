@@ -5,6 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
 public class BootReceiver extends BroadcastReceiver {
 
     private static String PREFS = "mqtt-prefs";
@@ -19,31 +23,9 @@ public class BootReceiver extends BroadcastReceiver {
 
         if ("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())) {
             if (vHostname.length() > 0) {
-                while (!isAvailable(vHostname)) {
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
                 Intent serviceLauncher = new Intent(context, MQTTService.class);
                 context.startService(serviceLauncher);
             }
         }
-    }
-
-    public Boolean isAvailable(String vHostname) {
-        try {
-            Process p1 = java.lang.Runtime.getRuntime().exec("ping -c 1 " + vHostname);
-            int returnVal = p1.waitFor();
-            boolean reachable = (returnVal == 0);
-
-            if (reachable) {
-                return reachable;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
     }
 }

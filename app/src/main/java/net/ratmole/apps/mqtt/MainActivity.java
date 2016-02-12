@@ -51,6 +51,15 @@ public class MainActivity extends Activity {
 		vPort.setText(String.valueOf(sPort));
 
 		final Button button = (Button) findViewById(R.id.mSave);
+		final Button messages = (Button) findViewById(R.id.mMessages);
+
+		messages.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				Intent myIntent = new Intent(MainActivity.this, MyListActivity.class);
+				MainActivity.this.startActivity(myIntent);
+			}
+		});
+
 		button.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View v) {
 

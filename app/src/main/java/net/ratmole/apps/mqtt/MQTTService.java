@@ -10,15 +10,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.provider.Settings;
-import android.util.Base64;
 import android.util.Log;
 
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -37,6 +35,10 @@ import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.List;
 import java.util.Locale;
 
 
@@ -58,18 +60,21 @@ public class MQTTService extends Service implements MqttCallback
 	private String 	TOPIC;
 
 
+
+
 	public static final String 		DEBUG_TAG = "MqttService";
 	private static final String		MQTT_THREAD_NAME = "MqttService[" + DEBUG_TAG + "]";
 
 	public static final int			MQTT_QOS_0 = 0; // QOS Level 0 ( Delivery Once no confirmation )
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
-	public int nCount	= 0;
+	public int nCount	= 1;
 	private static final int 		MQTT_KEEP_ALIVE = 120000;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
 
+	public boolean isbPortOpen = false;
 	private static final boolean 	MQTT_CLEAN_SESSION = false;
 
 	private String 	MQTT_URL_FORMAT;
@@ -95,6 +100,7 @@ public class MQTTService extends Service implements MqttCallback
 	private MqttTopic mKeepAliveTopic;
 
 	private MqttClient mClient;
+	private MessagesDataSource datasource;
 
 	private AlarmManager mAlarmManager;
 	private ConnectivityManager mConnectivityManager;
@@ -127,6 +133,9 @@ public class MQTTService extends Service implements MqttCallback
 	@Override
 	public void onCreate() {
 		super.onCreate();
+
+		datasource = new MessagesDataSource(this);
+    	datasource.open();
 
 		String vHostname, vTopic, vUsername, vPassword, vPort;
 		final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -311,8 +320,10 @@ public class MQTTService extends Service implements MqttCallback
 					String[] topics = TOPIC.split(",");
 
 					for (String topic : topics) {
-						Log.i(DEBUG_TAG, "subscribing to: " + topic);
-						mClient.subscribe(topic, 2);
+
+						if (topic != null) {
+							mClient.subscribe(topic, 2);
+						}
 					}
 
 					mClient.setCallback(MQTTService.this);
@@ -514,56 +525,44 @@ public class MQTTService extends Service implements MqttCallback
 	public void messageArrived(String topic, MqttMessage message)
 			throws Exception {
 
+
+
+		Intent notifyIntent = null;
+		String type = "text";
+
 		if (topic.toLowerCase().contains("pic")) {
-
-			byte[] decodedString = null;
-			Bitmap decodedByte = null;
-			Intent notifyIntent = null;
-			decodedString = Base64.decode(message.toString(), Base64.DEFAULT);
-			decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
-			Notification.Builder n = new Notification.Builder(this)
-					.setVibrate(new long[]{500, 1000})
-					.setSmallIcon(R.drawable.m2mgreen)
-					.setContentTitle("Image  @ " + topic)
-					.setStyle(new Notification.BigPictureStyle()
-							.bigPicture(decodedByte));
-
-			n.setLights(0xff00ff00, 100, 100);
-
-			notifyIntent = new Intent(this, ImageActivity.class);
-			notifyIntent.putExtra("Image", message.toString());
-
-			notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-
-			PendingIntent notifyPendingIntent =
-					PendingIntent.getActivity(
-							this,
-							nCount,
-							notifyIntent,
-							PendingIntent.FLAG_UPDATE_CURRENT
-					);
-
-			n.setContentIntent(notifyPendingIntent);
-			n.setAutoCancel(true);
-
-			NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-			notificationManager.notify(nCount, n.build());
-
-		} else {
-
-			Notification.Builder n = new Notification.Builder(this)
-					.setContentTitle("New msg @ " + topic)
-					.setSmallIcon(R.drawable.m2mgreen)
-					.setStyle(new Notification.BigTextStyle().bigText(message.toString()))
-					.setAutoCancel(false)
-					.setVibrate(new long[] { 500, 1000});
-
-			n.setLights(0xff00ff00, 100, 100);
-
-			NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-			notificationManager.notify(nCount, n.build());
+			type = "pic";
 		}
+
+
+		Message messageDB = datasource.createMessage(type,topic,message.toString(),"0");
+		final List<Message> values = datasource.getAllMessages();
+
+
+		Notification.Builder n = new Notification.Builder(this)
+				.setVibrate(new long[]{500, 1000})
+				.setSmallIcon(R.drawable.m2mgreen)
+				.setLights(0xff00ff00, 100, 100)
+				.setContentTitle("You have " + values.size() + " unread msg's");
+
+		notifyIntent = new Intent(this, MyListActivity.class);
+		notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+		PendingIntent notifyPendingIntent =
+				PendingIntent.getActivity(
+						this,
+						nCount,
+						notifyIntent,
+						PendingIntent.FLAG_UPDATE_CURRENT
+				);
+
+		n.setContentIntent(notifyPendingIntent);
+		n.setAutoCancel(true);
+
+		NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+		notificationManager.notify(1, n.build());
+
+
 		nCount++;
 
 	}
@@ -603,9 +602,6 @@ public class MQTTService extends Service implements MqttCallback
 		}
 
 	private void forceReconnect(){
-		if (isReconnecting) {
-			return;
-		}
 
 		isReconnecting = true;
 		Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
@@ -615,31 +611,19 @@ public class MQTTService extends Service implements MqttCallback
 		mStarted = false;
 		statusIcon(false);
 		if (MQTT_BROKER.length() > 0) {
-			while (!isAvailable(MQTT_BROKER)) {
+			new Connection().execute();
+			while (!isbPortOpen){
 				try {
+					Log.i(DEBUG_TAG, "Server Unreachable!!! Sleeping for " + (MQTT_KEEP_ALIVE / 4)/1000 + " seconds");
 					Thread.sleep(MQTT_KEEP_ALIVE / 4);
+					new Connection().execute();
+					Thread.sleep(5000);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
 			start();
 		}
-	}
-
-
-	public Boolean isAvailable(String vHostname) {
-		try {
-			Process p1 = java.lang.Runtime.getRuntime().exec("ping -c 1 " + vHostname);
-			int returnVal = p1.waitFor();
-			boolean reachable = (returnVal == 0);
-
-			if (reachable) {
-				return reachable;
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return false;
 	}
 
 	/**
@@ -649,5 +633,39 @@ public class MQTTService extends Service implements MqttCallback
 		private static final long serialVersionUID = -1234567890123456780L;
 	}
 
+	private class Connection extends AsyncTask {
 
+		@Override
+		protected Object doInBackground(Object... arg0) {
+			if (isPortOpen(MQTT_BROKER, Integer.parseInt(MQTT_PORT), 3000)){
+				isbPortOpen = true;
+			} else {
+				isbPortOpen = false;
+			}
+			return null;
+		}
+
+		public  boolean isPortOpen(final String ip, final int port, final int timeout) {
+			try {
+				Socket socket = new Socket();
+				socket.connect(new InetSocketAddress(ip, port), timeout);
+				socket.close();
+				isbPortOpen = true;
+				return true;
+			}
+
+			catch(ConnectException ce){
+				ce.printStackTrace();
+				isbPortOpen = false;
+				return false;
+			}
+
+			catch (Exception ex) {
+				ex.printStackTrace();
+				isbPortOpen = false;
+				return false;
+			}
+		}
+
+	}
 }
