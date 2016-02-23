@@ -4,6 +4,9 @@ import android.app.ListActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -16,8 +19,36 @@ public class MyListActivity extends ListActivity {
     public static final String DEBUG_TAG = "MqttService";
 
     List<Message> values = null;
+    private MySimpleArrayAdapter adapter;
 
     private MessagesDataSource datasource;
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.clearDB:
+                datasource = new MessagesDataSource(this);
+                datasource.open();
+                datasource.clearMessages();
+                values.clear();
+
+                if (adapter != null)
+                    adapter.notifyDataSetChanged();
+
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -33,20 +64,8 @@ public class MyListActivity extends ListActivity {
         if (values.isEmpty())
             return;
 
-        final MySimpleArrayAdapter adapter = new MySimpleArrayAdapter(this, values);
+        adapter = new MySimpleArrayAdapter(this, values);
         setListAdapter(adapter);
-
-        final Button clearAll = (Button) findViewById(R.id.clearAll);
-
-        clearAll.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                datasource.clearMessages();
-                values.clear();
-                adapter.notifyDataSetChanged();
-                finish();
-
-            }
-        });
 
    }
 
@@ -72,7 +91,9 @@ public class MyListActivity extends ListActivity {
 
         datasource.deleteMessage(values.get(position));
         values.remove(position);
-        ((ArrayAdapter) getListAdapter()).notifyDataSetChanged();
+        if (adapter != null)
+            adapter.notifyDataSetChanged();
+
     }
 
 
