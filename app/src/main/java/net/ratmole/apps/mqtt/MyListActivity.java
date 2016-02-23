@@ -15,6 +15,7 @@ import java.util.List;
 public class MyListActivity extends ListActivity {
     public static final String DEBUG_TAG = "MqttService";
 
+    List<Message> values = null;
 
     private MessagesDataSource datasource;
 
@@ -27,13 +28,13 @@ public class MyListActivity extends ListActivity {
         datasource = new MessagesDataSource(this);
         datasource.open();
 
-        final List<Message> values = datasource.getAllMessages();
+        values = datasource.getAllMessages();
 
         if (values.isEmpty())
             return;
 
-        final ArrayAdapter<Message> Mainadapter = new ArrayAdapter<Message>(this, android.R.layout.simple_list_item_1, values);
-        setListAdapter(Mainadapter);
+        final MySimpleArrayAdapter adapter = new MySimpleArrayAdapter(this, values);
+        setListAdapter(adapter);
 
         final Button clearAll = (Button) findViewById(R.id.clearAll);
 
@@ -41,45 +42,39 @@ public class MyListActivity extends ListActivity {
             public void onClick(View v) {
                 datasource.clearMessages();
                 values.clear();
-                Mainadapter.notifyDataSetChanged();
+                adapter.notifyDataSetChanged();
                 finish();
 
             }
         });
 
-
-
-        final ListView lv = getListView();
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapter, View v, int position, long arg3) {
-
-                String value = (String) adapter.getItemAtPosition(position).toString();
-                Log.i(DEBUG_TAG, "" + values.get(position).getId());
-                datasource.deleteMessage(values.get(position));
-
-                Intent myIntent;
-
-                switch (values.get(position).getType()) {
-                    case "text":
-                        myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
-                        myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
-                        MyListActivity.this.startActivity(myIntent);
-                        break;
-                    case "pic":
-                        myIntent = new Intent(MyListActivity.this, MyPicActivity.class);
-                        myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
-                        MyListActivity.this.startActivity(myIntent);
-                        break;
-                }
-
-                values.remove(position);
-                Mainadapter.notifyDataSetChanged();
-
-
-            }
-        });
    }
+
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        datasource.open();
+
+        Intent myIntent;
+
+        switch (values.get(position).getType()) {
+            case "text":
+                myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
+                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+                MyListActivity.this.startActivity(myIntent);
+                break;
+            case "pic":
+                myIntent = new Intent(MyListActivity.this, MyPicActivity.class);
+                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+                MyListActivity.this.startActivity(myIntent);
+                break;
+        }
+
+
+        datasource.deleteMessage(values.get(position));
+        values.remove(position);
+        ((ArrayAdapter) getListAdapter()).notifyDataSetChanged();
+    }
+
 
     @Override
     protected void onResume() {

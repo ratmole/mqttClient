@@ -580,16 +580,24 @@ public class MQTTService extends Service implements MqttCallback
 					.setSmallIcon(R.drawable.m2mgreen)
 					.setAutoCancel(false).build();
 		} else {
-
 			intent.setAction(ACTION_START);
 			PendingIntent actionPendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-			n = new Notification.Builder(this)
-					.setContentTitle("MQTT Inactive")
-					.setContentIntent(pIntent)
-					.setSmallIcon(R.drawable.m2mgrey)
-					.addAction(android.R.drawable.presence_online, "Connect", actionPendingIntent)
-					.setAutoCancel(false).build();
 
+			if (isReconnecting){
+				n = new Notification.Builder(this)
+						.setContentTitle("MQTT Auto Reconnecting...")
+						.setContentIntent(pIntent)
+						.setSmallIcon(R.drawable.m2mgrey)
+						.setAutoCancel(false).build();
+			} else {
+
+				n = new Notification.Builder(this)
+						.setContentTitle("MQTT Inactive")
+						.setContentIntent(pIntent)
+						.setSmallIcon(R.drawable.m2mgrey)
+						.addAction(android.R.drawable.presence_online, "Connect", actionPendingIntent)
+						.setAutoCancel(false).build();
+			}
 		}
 
 		n.flags |= Notification.FLAG_NO_CLEAR | Notification.FLAG_ONGOING_EVENT;

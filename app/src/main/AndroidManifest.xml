@@ -44,7 +44,7 @@
 
 
         <service android:name="MQTTService" android:enabled="true">
-            
+
         </service>
         <activity
             android:name=".MyTextActivity"
