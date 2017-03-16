@@ -17,6 +17,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -27,13 +28,13 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.eclipse.paho.client.mqttv3.MqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
@@ -45,13 +46,15 @@ import java.util.Locale;
 public class MQTTService extends Service implements MqttCallback
 {
 
+	private static boolean logDebug = false;
+
+
 	private static String PREFS = "mqtt-prefs";
 	private static String sHOSTNAME = "-Hostname";
 	private static String sTOPIC = "-Topic";
 	private static String sUSERNAME = "-Username";
 	private static String sPASSWORD = "-Password";
 	private static String sPORT = "-Port";
-
 
 	private String 	MQTT_BROKER;
 	private String 	MQTT_PORT;
@@ -85,6 +88,9 @@ public class MQTTService extends Service implements MqttCallback
 	private static final String 	ACTION_RECONNECT= DEBUG_TAG + ".RECONNECT";
 	private static final String 	ACTION_FORCE_RECONNECT= DEBUG_TAG + ".FORCE_RECONNECT";
 	private static final String 	ACTION_SANITY= DEBUG_TAG + ".SANITY";
+	private static final String 	ACTION_SETTINGS_UPDATE= DEBUG_TAG + ".SANITY";
+
+
 
 
 	private static final String 	DEVICE_ID_FORMAT = "andr_%s"; // Device ID Format, add any prefix you'd like
@@ -201,38 +207,75 @@ public class MQTTService extends Service implements MqttCallback
 		super.onStartCommand(intent, flags, startId);
 
 		String action = null;
+		int flag = -99;
 
 		if (intent != null) {
 			action = intent.getAction();
-		}
-				//Log.i(DEBUG_TAG, " "+action);
+			flag = intent.getFlags();
+			if (logDebug) Log.i(DEBUG_TAG, "Action: "+action);
+			if (logDebug) Log.i(DEBUG_TAG, "Flag: "+flag);
+			if (logDebug)Log.i(DEBUG_TAG, "Starting service with no action\n Probably from a crash");
+			start();
+			}
+		else {
 
-			if (action == null) {
-				Log.i(DEBUG_TAG, "Starting service with no action\n Probably from a crash");
+			if (action.equals(ACTION_START)) {
+				if (logDebug) Log.i(DEBUG_TAG, "Received ACTION_START");
 				start();
-			} else {
-				if (action.equals(ACTION_START)) {
-					Log.i(DEBUG_TAG, "Received ACTION_START");
-					start();
-				} else if (action.equals(ACTION_STOP)) {
-					stop();
-				} else if (action.equals(ACTION_KEEPALIVE)) {
-					keepAlive();
-				} else if (action.equals(ACTION_RECONNECT)) {
-					if (isNetworkAvailable()) {
-						reconnectIfNecessary();
-					}
-				} else if (action.equals(ACTION_FORCE_RECONNECT)) {
-					if (isNetworkAvailable()) {
-						forceReconnect();
-					}
-				}
-				else if (action.equals(ACTION_SANITY)) {
-					if (isNetworkAvailable() && !isConnected()) {
-						forceReconnect();
-					}
+			}
+
+			if (action.equals(ACTION_STOP)) {
+				stop();
+			}
+
+			if (action.equals(ACTION_KEEPALIVE)) {
+				keepAlive();
+			}
+
+			if (action.equals(ACTION_RECONNECT)) {
+				if (isNetworkAvailable()) {
+					reconnectIfNecessary();
 				}
 			}
+			if (action.equals(ACTION_FORCE_RECONNECT)) {
+				if (isNetworkAvailable()) {
+					forceReconnect();
+				}
+			}
+
+			if (action.equals(ACTION_SANITY)) {
+				if (isNetworkAvailable() && !isConnected()) {
+					forceReconnect();
+				}
+			}
+
+			if (action.equals(ACTION_SETTINGS_UPDATE) && ( intent.getFlags() != Intent.FLAG_ACTIVITY_NO_USER_ACTION)) {
+				if (logDebug)  Log.i(DEBUG_TAG, "Received ACTION_SETTINGS_UPDATE");
+				String vHostname, vTopic, vUsername, vPassword, vPort;
+				final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+				vHostname = sharedPref.getString(sHOSTNAME, "");
+				vTopic = sharedPref.getString(sTOPIC, "");
+				vUsername = sharedPref.getString(sUSERNAME, "");
+				vPassword = sharedPref.getString(sPASSWORD, "");
+				vPort = sharedPref.getString(sPORT, "");
+
+				MQTT_BROKER = vHostname; // Broker URL or IP Address
+				MQTT_PORT = vPort;                // Broker Port
+				USERNAME = vUsername;
+				PASSWORD = vPassword;
+				TOPIC = vTopic;
+
+				if (MQTT_PORT.equals("1883")) {
+					MQTT_URL_FORMAT = "tcp://%s:%s";
+				} else {
+					MQTT_URL_FORMAT = "ssl://%s:%s";
+				}
+				stop();
+				start();
+			}
+		}
+
 		return Service.START_STICKY;
 	}
 
@@ -244,7 +287,7 @@ public class MQTTService extends Service implements MqttCallback
 	private synchronized void start() {
 
 		if(mStarted) {
-			Log.i(DEBUG_TAG, "Attempt to start while already started");
+			if (logDebug) Log.i(DEBUG_TAG, "Attempt to start while already started");
 			return;
 		}
 
@@ -262,7 +305,7 @@ public class MQTTService extends Service implements MqttCallback
 	 */
 	private synchronized void stop() {
 		if(!mStarted) {
-			Log.i(DEBUG_TAG, "Attemtpign to stop connection that isn't running");
+			if (logDebug) Log.i(DEBUG_TAG, "Attemtpign to stop connection that isn't running");
 			return;
 		}
 
@@ -438,7 +481,7 @@ public class MQTTService extends Service implements MqttCallback
 	 */
 	private boolean isConnected() {
 		if(mStarted && mClient != null && !mClient.isConnected()) {
-			Log.i(DEBUG_TAG,"Mismatch between what we think is connected and what is connected");
+			if (logDebug) Log.i(DEBUG_TAG,"Mismatch between what we think is connected and what is connected");
 		}
 
 		if(mClient != null) {
@@ -563,6 +606,9 @@ public class MQTTService extends Service implements MqttCallback
 
 		nCount++;
 
+		speedExceedMessageToActivity();
+
+
 	}
 	public void statusIcon(boolean status){
 
@@ -614,7 +660,7 @@ public class MQTTService extends Service implements MqttCallback
 		}
 
 		isReconnecting = true;
-		Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
+		if (logDebug)  Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
 
 		stopKeepAlives();
 		mClient = null;
@@ -678,4 +724,18 @@ public class MQTTService extends Service implements MqttCallback
 		}
 
 	}
+
+
+
+	private void speedExceedMessageToActivity() {
+		Intent intent = new Intent("speedExceeded");
+		sendLocationBroadcast(intent);
+	}
+
+	private void sendLocationBroadcast(Intent intent){
+		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+	}
+
+
+
 }

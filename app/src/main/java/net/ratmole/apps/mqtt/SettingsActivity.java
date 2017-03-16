@@ -10,7 +10,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class SettingsActivity extends Activity {
 
 	private static String PREFS = "mqtt-prefs";
 
@@ -19,6 +19,11 @@ public class MainActivity extends Activity {
 	private static String USERNAME = "-Username";
 	private static String PASSWORD = "-Password";
 	private static String PORT = "-Port";
+	public static final String 		DEBUG_TAG = "MqttService";
+
+	private static final String 	ACTION_SETTINGS_UPDATE= DEBUG_TAG + ".SANITY";
+
+
 
 
 	@Override
@@ -51,14 +56,6 @@ public class MainActivity extends Activity {
 		vPort.setText(String.valueOf(sPort));
 
 		final Button button = (Button) findViewById(R.id.mSave);
-		final Button messages = (Button) findViewById(R.id.mMessages);
-
-		messages.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View v) {
-				Intent myIntent = new Intent(MainActivity.this, MyListActivity.class);
-				MainActivity.this.startActivity(myIntent);
-			}
-		});
 
 		button.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View v) {
@@ -76,14 +73,17 @@ public class MainActivity extends Activity {
 					editor.putString(PORT, vPort.getText().toString());
 					editor.commit();
 
-
-					final Intent intent = new Intent(getApplicationContext(), MQTTService.class);
-					startService(intent);
+					Intent intent = new Intent(getApplicationContext(), MQTTService.class);
+					intent.setAction(ACTION_SETTINGS_UPDATE);
+					getApplicationContext().startService(intent);
+					intent = null;
 					finish();
+
 				} else {
 					Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port", Toast.LENGTH_LONG).show();
 				}
 			}
 		});
 	}
+
 }

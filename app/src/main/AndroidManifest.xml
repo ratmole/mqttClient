@@ -19,8 +19,8 @@
         android:icon="@drawable/m2mgreen"
         android:label="@string/app_name" >
         <activity
-            android:name="net.ratmole.apps.mqtt.MainActivity"
-            android:theme="@android:style/Theme.Black"
+            android:name="net.ratmole.apps.mqtt.MyListActivity"
+
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -61,7 +61,7 @@
             android:excludeFromRecents="true">
     </activity>
         <activity
-            android:name=".MyListActivity"
+            android:name=".SettingsActivity"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:excludeFromRecents="true">
