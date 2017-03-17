@@ -94,11 +94,10 @@ public class MyListActivity extends ListActivity {
 
         values = datasource.getAllMessages();
 
-        if (values.isEmpty())
-            return;
-
         adapter = new MySimpleArrayAdapter(this, values);
         setListAdapter(adapter);
+        datasource.close();
+
 
     }
 
@@ -114,6 +113,7 @@ public class MyListActivity extends ListActivity {
                 adapter = new MySimpleArrayAdapter(context, values);
                 setListAdapter(adapter);
                 adapter.notifyDataSetChanged();
+                datasource.close();
             }
         }
     };
@@ -127,35 +127,35 @@ public class MyListActivity extends ListActivity {
         switch (values.get(position).getType()) {
             case "text":
                 myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
-                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+//                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+                myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
                 break;
             case "pic":
                 myIntent = new Intent(MyListActivity.this, MyPicActivity.class);
-                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+                //myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
+                myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
                 break;
         }
 
-
-        datasource.deleteMessage(values.get(position));
+        datasource.close();;
         values.remove(position);
+
         if (adapter != null)
             adapter.notifyDataSetChanged();
 
     }
 
-
     @Override
     protected void onResume() {
         super.onResume();
-        datasource.open();
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        datasource.close();
     }
 
 }

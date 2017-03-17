@@ -1,13 +1,13 @@
 package net.ratmole.apps.mqtt;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MessagesDataSource {
 
@@ -54,8 +54,8 @@ public class MessagesDataSource {
     }
 
 
-    public void deleteMessage(Message message) {
-        String id = message.getId();
+    public void deleteMessage(String id) {
+        //String id = message.getId();
         System.out.println("Message deleted with id: " + id);
         database.delete(MySQLiteHelper.TABLE_MESSAGES, MySQLiteHelper.COLUMN_ID
                 + " = " + id, null);
@@ -81,6 +81,20 @@ public class MessagesDataSource {
         cursor.close();
         return messages;
     }
+
+    public String getMessage(String id) {
+            Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES, new String[] { MySQLiteHelper.COLUMN_ID,
+                MySQLiteHelper.COLUMN_MESSAGE }, MySQLiteHelper.COLUMN_ID + "=?",
+                new String[] { String.valueOf(id) }, null, null, null, null);
+
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        return cursor.getString(1);
+
+        }
+
+
 
     private Message cursorToMessage(Cursor cursor) {
         Message message = new Message();

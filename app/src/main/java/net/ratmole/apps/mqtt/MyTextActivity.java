@@ -1,13 +1,9 @@
 package net.ratmole.apps.mqtt;
 
 import android.app.Activity;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
-
-
-import java.util.List;
 
 public class MyTextActivity extends Activity {
     public static final String 		DEBUG_TAG = "MqttService";
@@ -24,22 +20,26 @@ public class MyTextActivity extends Activity {
         datasource.open();
 
         Intent intent = getIntent();
-        String data = intent.getStringExtra("data");
+        //String data = intent.getStringExtra("data");
+        String data = datasource.getMessage(intent.getStringExtra("id"));
+
 
         TextView mqttData;
         mqttData = (TextView) findViewById(R.id.mqttMessage);
         mqttData.setText(data);
+
+        datasource.deleteMessage(intent.getStringExtra("id"));
+        datasource.close();
+
     }
 
    @Override
   protected void onResume() {
-    datasource.open();
     super.onResume();
   }
 
   @Override
   protected void onPause() {
-    datasource.close();
     super.onPause();
   }
 
