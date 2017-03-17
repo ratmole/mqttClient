@@ -46,7 +46,7 @@ import java.util.Locale;
 public class MQTTService extends Service implements MqttCallback
 {
 
-	private static boolean logDebug = false;
+	private static boolean logDebug = true;
 
 
 	private static String PREFS = "mqtt-prefs";
@@ -72,7 +72,7 @@ public class MQTTService extends Service implements MqttCallback
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
 	public int nCount	= 1;
-	private static final int 		MQTT_KEEP_ALIVE = 120000;
+	private static final int 		MQTT_KEEP_ALIVE = 60;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
@@ -84,7 +84,7 @@ public class MQTTService extends Service implements MqttCallback
 
 	private static final String 	ACTION_START 	= DEBUG_TAG + ".START";
 	private static final String 	ACTION_STOP		= DEBUG_TAG + ".STOP";
-	private static final String 	ACTION_KEEPALIVE= DEBUG_TAG + ".KEEPALIVE";
+	//private static final String 	ACTION_KEEPALIVE= DEBUG_TAG + ".KEEPALIVE";
 	private static final String 	ACTION_RECONNECT= DEBUG_TAG + ".RECONNECT";
 	private static final String 	ACTION_FORCE_RECONNECT= DEBUG_TAG + ".FORCE_RECONNECT";
 	private static final String 	ACTION_SANITY= DEBUG_TAG + ".SANITY";
@@ -124,11 +124,11 @@ public class MQTTService extends Service implements MqttCallback
 		ctx.startService(i);
 	}
 
-	public static void actionKeepalive(Context ctx) {
+	/*public static void actionKeepalive(Context ctx) {
 		Intent i = new Intent(ctx,MQTTService.class);
 		i.setAction(ACTION_KEEPALIVE);
 		ctx.startService(i);
-	}
+	}*/
 
 
 	/**
@@ -183,7 +183,8 @@ public class MQTTService extends Service implements MqttCallback
 		mOpts.setCleanSession(MQTT_CLEAN_SESSION);
 		mOpts.setPassword(PASSWORD.toCharArray());
 		mOpts.setUserName(USERNAME);
-		// Do not set keep alive interval on mOpts we keep track of it with alarm's
+		mOpts.setKeepAliveInterval(MQTT_KEEP_ALIVE);
+
 
 		mAlarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
 		mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
@@ -227,9 +228,9 @@ public class MQTTService extends Service implements MqttCallback
 					stop();
 				}
 
-				if (action.equals(ACTION_KEEPALIVE)) {
+			/*	if (action.equals(ACTION_KEEPALIVE)) {
 					keepAlive();
-				}
+				}*/
 
 				if (action.equals(ACTION_RECONNECT)) {
 					if (isNetworkAvailable()) {
@@ -242,13 +243,13 @@ public class MQTTService extends Service implements MqttCallback
 					}
 				}
 
-				if (action.equals(ACTION_SANITY)) {
+				if (action.equals(ACTION_SANITY) && (intent.getFlags() != 4)) {
 					if (isNetworkAvailable() && !isConnected()) {
 						forceReconnect();
 					}
 				}
 
-				if (action.equals(ACTION_SETTINGS_UPDATE) && (intent.getFlags() != Intent.FLAG_ACTIVITY_NO_USER_ACTION)) {
+				if (action.equals(ACTION_SETTINGS_UPDATE) && (intent.getFlags() != 4)) {
 					if (logDebug) Log.i(DEBUG_TAG, "Received ACTION_SETTINGS_UPDATE");
 					String vHostname, vTopic, vUsername, vPassword, vPort;
 					final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -293,9 +294,9 @@ public class MQTTService extends Service implements MqttCallback
 			return;
 		}
 
-		if(hasScheduledKeepAlives()) {
+		/*if(hasScheduledKeepAlives()) {
 			stopKeepAlives();
-		}
+		}*/
 		connect();
 		registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 	}
@@ -323,7 +324,7 @@ public class MQTTService extends Service implements MqttCallback
 					mClient = null;
 					mStarted = false;
 
-					stopKeepAlives();
+					//stopKeepAlives();
 					sanityTimerStop();
 					statusIcon(false);
 				}
@@ -375,9 +376,9 @@ public class MQTTService extends Service implements MqttCallback
 
 					mStarted = true; // Service is now connected
 					statusIcon(true);
-					Log.i(DEBUG_TAG, "Successfully connected and subscribed starting keep alives");
+					Log.i(DEBUG_TAG, "Successfully connected and subscribed");
 
-					startKeepAlives();
+					//startKeepAlives();
 					isReconnecting = false;
 
 				} catch (Exception e) {
@@ -394,32 +395,32 @@ public class MQTTService extends Service implements MqttCallback
 	 * Schedules keep alives via a PendingIntent
 	 * in the Alarm Manager
 	 */
-	private void startKeepAlives() {
+	/*private void startKeepAlives() {
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_KEEPALIVE);
 		PendingIntent pi = PendingIntent.getService(this, 0, i, 0);
 		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + MQTT_KEEP_ALIVE, MQTT_KEEP_ALIVE, pi);
-	}
+	}*/
 
 	/**
 	 * Cancels the Pending Intent
 	 * in the alarm manager
 	 */
-	private void stopKeepAlives() {
+	/*private void stopKeepAlives() {
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_KEEPALIVE);
 		PendingIntent pi = PendingIntent.getService(this, 0, i , 0);
 		mAlarmManager.cancel(pi);
-	}
+	}*/
 
 	private void sanityTimerStart() {
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_SANITY);
 		PendingIntent pi = PendingIntent.getService(this, 1, i, 0);
-		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + MQTT_KEEP_ALIVE, MQTT_KEEP_ALIVE, pi);
+		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*1000), (MQTT_KEEP_ALIVE*1000), pi);
 	}
 
 	private void sanityTimerStop() {
@@ -433,7 +434,7 @@ public class MQTTService extends Service implements MqttCallback
 	 * Publishes a KeepALive to the topic
 	 * in the broker
 	 */
-	private synchronized void keepAlive() {
+/*	private synchronized void keepAlive() {
 		boolean kFailed = false;
 
 		if(isConnected()) {
@@ -454,7 +455,7 @@ public class MQTTService extends Service implements MqttCallback
 					forceReconnect();
 				}
 		}
-	}
+	}*/
 
 	/**
 	 * Checkes the current connectivity
@@ -527,14 +528,14 @@ public class MQTTService extends Service implements MqttCallback
 	 * a keep alive currently scheduled
 	 * @return true if there is currently one scheduled false otherwise
 	 */
-	private synchronized boolean hasScheduledKeepAlives() {
+	/*private synchronized boolean hasScheduledKeepAlives() {
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_KEEPALIVE);
 		PendingIntent pi = PendingIntent.getBroadcast(this, 0, i, PendingIntent.FLAG_NO_CREATE);
 
 		return (pi != null) ? true : false;
-	}
+	}*/
 
 	@Override
 	public IBinder onBind(Intent arg0) {
@@ -546,7 +547,7 @@ public class MQTTService extends Service implements MqttCallback
 	 */
 	@Override
 	public void connectionLost(Throwable arg0) {
-		stopKeepAlives();
+		//stopKeepAlives();
 
 		mClient = null;
 		statusIcon(false);
@@ -666,7 +667,7 @@ public class MQTTService extends Service implements MqttCallback
 		isReconnecting = true;
 		if (logDebug)  Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
 
-		stopKeepAlives();
+		//stopKeepAlives();
 		mClient = null;
 		mStarted = false;
 		statusIcon(false);
@@ -674,7 +675,7 @@ public class MQTTService extends Service implements MqttCallback
 			new Connection().execute();
 			while (!isbPortOpen){
 				try {
-					Log.i(DEBUG_TAG, "Server Unreachable!!! Sleeping for " + (MQTT_KEEP_ALIVE / 4)/1000 + " seconds");
+					Log.i(DEBUG_TAG, "Server Unreachable!!! Sleeping for " + (MQTT_KEEP_ALIVE / 4) + " seconds");
 					Thread.sleep(MQTT_KEEP_ALIVE / 4);
 					new Connection().execute();
 					Thread.sleep(5000);
