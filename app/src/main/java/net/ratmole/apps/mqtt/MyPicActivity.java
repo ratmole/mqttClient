@@ -24,12 +24,10 @@ public class MyPicActivity extends Activity {
         datasource.open();
 
         Intent intent = getIntent();
-        //String data = intent.getStringExtra("data");
         String data = datasource.getMessage(intent.getStringExtra("id"));
 
         byte[] decodedString = Base64.decode(data, Base64.DEFAULT);
         final Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
 
         TouchImageView img = new TouchImageView(this);
         img.setImageBitmap(decodedByte);
@@ -38,7 +36,6 @@ public class MyPicActivity extends Activity {
 
         datasource.deleteMessage(intent.getStringExtra("id"));
         datasource.close();
-
     }
 
    @Override

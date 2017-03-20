@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -28,10 +29,8 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
@@ -63,16 +62,13 @@ public class MQTTService extends Service implements MqttCallback
 	private String 	TOPIC;
 
 
-
-
 	public static final String 		DEBUG_TAG = "MqttService";
 	private static final String		MQTT_THREAD_NAME = "MqttService[" + DEBUG_TAG + "]";
 
 	public static final int			MQTT_QOS_0 = 0; // QOS Level 0 ( Delivery Once no confirmation )
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
-	public int nCount	= 1;
-	private static final int 		MQTT_KEEP_ALIVE = 60;
+	private static final int 		MQTT_KEEP_ALIVE = 120;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
@@ -84,14 +80,10 @@ public class MQTTService extends Service implements MqttCallback
 
 	private static final String 	ACTION_START 	= DEBUG_TAG + ".START";
 	private static final String 	ACTION_STOP		= DEBUG_TAG + ".STOP";
-	//private static final String 	ACTION_KEEPALIVE= DEBUG_TAG + ".KEEPALIVE";
 	private static final String 	ACTION_RECONNECT= DEBUG_TAG + ".RECONNECT";
 	private static final String 	ACTION_FORCE_RECONNECT= DEBUG_TAG + ".FORCE_RECONNECT";
 	private static final String 	ACTION_SANITY= DEBUG_TAG + ".SANITY";
 	private static final String 	ACTION_SETTINGS_UPDATE= DEBUG_TAG + ".SANITY";
-
-
-
 
 	private static final String 	DEVICE_ID_FORMAT = "andr_%s"; // Device ID Format, add any prefix you'd like
 	// Note: There is a 23 character limit you will get
@@ -124,13 +116,6 @@ public class MQTTService extends Service implements MqttCallback
 		ctx.startService(i);
 	}
 
-	/*public static void actionKeepalive(Context ctx) {
-		Intent i = new Intent(ctx,MQTTService.class);
-		i.setAction(ACTION_KEEPALIVE);
-		ctx.startService(i);
-	}*/
-
-
 	/**
 	 * Initalizes the DeviceId and most instance variables
 	 * Including the Connection Handler, Datastore, Alarm Manager
@@ -140,10 +125,13 @@ public class MQTTService extends Service implements MqttCallback
 	public void onCreate() {
 		super.onCreate();
 
-
-
 		String vHostname, vTopic, vUsername, vPassword, vPort;
 		final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+		mAlarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+		mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+
+		mDeviceId = String.format(DEVICE_ID_FORMAT, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));
 
 		vHostname	= sharedPref.getString(sHOSTNAME, "");
 		vTopic		= sharedPref.getString(sTOPIC,"");
@@ -171,7 +159,6 @@ public class MQTTService extends Service implements MqttCallback
 			e.printStackTrace();
 		}
 
-		mDeviceId = String.format(DEVICE_ID_FORMAT, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));
 
 		HandlerThread thread = new HandlerThread(MQTT_THREAD_NAME);
 		thread.start();
@@ -185,9 +172,6 @@ public class MQTTService extends Service implements MqttCallback
 		mOpts.setUserName(USERNAME);
 		mOpts.setKeepAliveInterval(MQTT_KEEP_ALIVE);
 
-
-		mAlarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-		mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
 		start();
 	}
 
@@ -217,8 +201,6 @@ public class MQTTService extends Service implements MqttCallback
 				if (logDebug) Log.i(DEBUG_TAG, "Action: " + action);
 				if (logDebug) Log.i(DEBUG_TAG, "Flag: " + flag);
 
-
-
 				if (action.equals(ACTION_START)) {
 					if (logDebug) Log.i(DEBUG_TAG, "Received ACTION_START");
 					start();
@@ -227,10 +209,6 @@ public class MQTTService extends Service implements MqttCallback
 				if (action.equals(ACTION_STOP)) {
 					stop();
 				}
-
-			/*	if (action.equals(ACTION_KEEPALIVE)) {
-					keepAlive();
-				}*/
 
 				if (action.equals(ACTION_RECONNECT)) {
 					if (isNetworkAvailable()) {
@@ -261,7 +239,7 @@ public class MQTTService extends Service implements MqttCallback
 					vPort = sharedPref.getString(sPORT, "");
 
 					MQTT_BROKER = vHostname; // Broker URL or IP Address
-					MQTT_PORT = vPort;                // Broker Port
+					MQTT_PORT = vPort;       // Broker Port
 					USERNAME = vUsername;
 					PASSWORD = vPassword;
 					TOPIC = vTopic;
@@ -275,9 +253,7 @@ public class MQTTService extends Service implements MqttCallback
 					start();
 				}
 			}
-			//if (logDebug) Log.i(DEBUG_TAG, "Starting service with no action\n Probably from a crash");
-			//start();
-			}
+		}
 
 		return Service.START_STICKY;
 	}
@@ -294,9 +270,6 @@ public class MQTTService extends Service implements MqttCallback
 			return;
 		}
 
-		/*if(hasScheduledKeepAlives()) {
-			stopKeepAlives();
-		}*/
 		connect();
 		registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 	}
@@ -324,13 +297,11 @@ public class MQTTService extends Service implements MqttCallback
 					mClient = null;
 					mStarted = false;
 
-					//stopKeepAlives();
 					sanityTimerStop();
 					statusIcon(false);
 				}
 			});
 		}
-
 		unregisterReceiver(mConnectivityReceiver);
 	}
 
@@ -378,7 +349,6 @@ public class MQTTService extends Service implements MqttCallback
 					statusIcon(true);
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed");
 
-					//startKeepAlives();
 					isReconnecting = false;
 
 				} catch (Exception e) {
@@ -391,29 +361,6 @@ public class MQTTService extends Service implements MqttCallback
 		});
 	}
 
-	/**
-	 * Schedules keep alives via a PendingIntent
-	 * in the Alarm Manager
-	 */
-	/*private void startKeepAlives() {
-		Intent i = new Intent();
-		i.setClass(this, MQTTService.class);
-		i.setAction(ACTION_KEEPALIVE);
-		PendingIntent pi = PendingIntent.getService(this, 0, i, 0);
-		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + MQTT_KEEP_ALIVE, MQTT_KEEP_ALIVE, pi);
-	}*/
-
-	/**
-	 * Cancels the Pending Intent
-	 * in the alarm manager
-	 */
-	/*private void stopKeepAlives() {
-		Intent i = new Intent();
-		i.setClass(this, MQTTService.class);
-		i.setAction(ACTION_KEEPALIVE);
-		PendingIntent pi = PendingIntent.getService(this, 0, i , 0);
-		mAlarmManager.cancel(pi);
-	}*/
 
 	private void sanityTimerStart() {
 		Intent i = new Intent();
@@ -429,33 +376,6 @@ public class MQTTService extends Service implements MqttCallback
 		PendingIntent pi = PendingIntent.getService(this, 1, i , 0);
 		mAlarmManager.cancel(pi);
 	}
-
-	/**
-	 * Publishes a KeepALive to the topic
-	 * in the broker
-	 */
-/*	private synchronized void keepAlive() {
-		boolean kFailed = false;
-
-		if(isConnected()) {
-			try {
-				sendKeepAlive();
-				return;
-
-			} catch(MqttConnectivityException ex) {
-				kFailed = true;
-			} catch(MqttPersistenceException ex) {
-				kFailed = true;
-			} catch(MqttException ex) {
-				kFailed = true;
-			} catch (Exception ex) {
-				kFailed = true;
-			}
-				if (kFailed) {
-					forceReconnect();
-				}
-		}
-	}*/
 
 	/**
 	 * Checkes the current connectivity
@@ -505,38 +425,6 @@ public class MQTTService extends Service implements MqttCallback
 			}
 	};
 
-	private synchronized MqttDeliveryToken sendKeepAlive()
-			throws MqttConnectivityException, MqttPersistenceException, MqttException, Exception {
-
-		if(!isConnected())
-			throw new MqttConnectivityException();
-
-		if(mKeepAliveTopic == null) {
-			mKeepAliveTopic = mClient.getTopic(String.format(Locale.US, MQTT_KEEP_ALIVE_TOPIC_FORMAT, mDeviceId));
-		}
-
-		Log.i(DEBUG_TAG, "Sending Keepalive to " + MQTT_BROKER);
-
-		MqttMessage message = new MqttMessage(MQTT_KEEP_ALIVE_MESSAGE);
-		message.setQos(MQTT_KEEP_ALIVE_QOS);
-
-		return mKeepAliveTopic.publish(message);
-	}
-
-	/**
-	 * Query's the AlarmManager to check if there is
-	 * a keep alive currently scheduled
-	 * @return true if there is currently one scheduled false otherwise
-	 */
-	/*private synchronized boolean hasScheduledKeepAlives() {
-		Intent i = new Intent();
-		i.setClass(this, MQTTService.class);
-		i.setAction(ACTION_KEEPALIVE);
-		PendingIntent pi = PendingIntent.getBroadcast(this, 0, i, PendingIntent.FLAG_NO_CREATE);
-
-		return (pi != null) ? true : false;
-	}*/
-
 	@Override
 	public IBinder onBind(Intent arg0) {
 		return null;
@@ -547,8 +435,6 @@ public class MQTTService extends Service implements MqttCallback
 	 */
 	@Override
 	public void connectionLost(Throwable arg0) {
-		//stopKeepAlives();
-
 		mClient = null;
 		statusIcon(false);
 
@@ -588,7 +474,7 @@ public class MQTTService extends Service implements MqttCallback
 		Notification.Builder n = new Notification.Builder(this)
 				.setVibrate(new long[]{500, 1000})
 				.setSmallIcon(R.drawable.m2mgreen)
-				.setLights(0xff00ff00, 100, 100)
+				.setLights(Color.BLUE, 1000, 1000)
 				.setContentTitle("You have " + values.size() + " unread msg's");
 
 		notifyIntent = new Intent(this, MyListActivity.class);
@@ -597,24 +483,18 @@ public class MQTTService extends Service implements MqttCallback
 		PendingIntent notifyPendingIntent =
 				PendingIntent.getActivity(
 						this,
-						nCount,
+						99999999,
 						notifyIntent,
 						PendingIntent.FLAG_UPDATE_CURRENT
 				);
 
 		n.setContentIntent(notifyPendingIntent);
-		n.setAutoCancel(true);
 
 		NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-		notificationManager.notify(1, n.build());
-
-
-		nCount++;
-
-		speedExceedMessageToActivity();
-
-
+		notificationManager.notify(99999999, n.build());
+		informActivity();
 	}
+
 	public void statusIcon(boolean status){
 
 		Intent intent = new Intent(this, MQTTService.class);
@@ -667,7 +547,6 @@ public class MQTTService extends Service implements MqttCallback
 		isReconnecting = true;
 		if (logDebug)  Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
 
-		//stopKeepAlives();
 		mClient = null;
 		mStarted = false;
 		statusIcon(false);
@@ -732,8 +611,8 @@ public class MQTTService extends Service implements MqttCallback
 
 
 
-	private void speedExceedMessageToActivity() {
-		Intent intent = new Intent("speedExceeded");
+	private void informActivity() {
+		Intent intent = new Intent("informActivity");
 		sendLocationBroadcast(intent);
 	}
 

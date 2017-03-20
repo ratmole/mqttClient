@@ -1,6 +1,9 @@
 package net.ratmole.apps.mqtt;
 
 import android.app.ListActivity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -44,6 +47,9 @@ public class MyListActivity extends ListActivity {
         // Handle item selection
         switch (item.getItemId()) {
             case R.id.clearDB:
+                NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+                notificationManager.cancel(99999999);
+
                 datasource = new MessagesDataSource(this);
                 datasource.open();
                 datasource.clearMessages();
@@ -65,11 +71,8 @@ public class MyListActivity extends ListActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
-
         final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-
 
         String sHostname, sTopic, sUsername, sPassword, sPort;
 
@@ -85,7 +88,7 @@ public class MyListActivity extends ListActivity {
             Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port", Toast.LENGTH_LONG).show();
         }
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("speedExceeded"));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("informActivity"));
 
         setContentView(R.layout.activity_list);
 
@@ -97,8 +100,6 @@ public class MyListActivity extends ListActivity {
         adapter = new MySimpleArrayAdapter(this, values);
         setListAdapter(adapter);
         datasource.close();
-
-
     }
 
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
@@ -120,31 +121,52 @@ public class MyListActivity extends ListActivity {
 
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
-        datasource.open();
-
         Intent myIntent;
+        datasource.open();
 
         switch (values.get(position).getType()) {
             case "text":
                 myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
-//                myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
                 myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
                 break;
             case "pic":
                 myIntent = new Intent(MyListActivity.this, MyPicActivity.class);
-                //myIntent.putExtra("data", values.get(position).getMessage()); //Optional parameters
                 myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
                 break;
         }
 
-        datasource.close();;
         values.remove(position);
+        datasource.close();
+
+        if ((values.size()) == 0){
+            NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.cancel(99999999);
+        } else {
+            Notification.Builder n = new Notification.Builder(this)
+                    .setSmallIcon(R.drawable.m2mgreen)
+                    .setContentTitle("You have " + (values.size()) + " unread msg's");
+
+            myIntent = new Intent(this, MyListActivity.class);
+            myIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+            PendingIntent notifyPendingIntent =
+                    PendingIntent.getActivity(
+                            this,
+                            (99999999),
+                            myIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                    );
+
+            n.setContentIntent(notifyPendingIntent);
+
+            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            notificationManager.notify(99999999, n.build());
+        }
 
         if (adapter != null)
             adapter.notifyDataSetChanged();
-
     }
 
     @Override

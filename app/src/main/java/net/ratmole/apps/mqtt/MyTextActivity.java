@@ -20,9 +20,7 @@ public class MyTextActivity extends Activity {
         datasource.open();
 
         Intent intent = getIntent();
-        //String data = intent.getStringExtra("data");
         String data = datasource.getMessage(intent.getStringExtra("id"));
-
 
         TextView mqttData;
         mqttData = (TextView) findViewById(R.id.mqttMessage);
@@ -30,7 +28,6 @@ public class MyTextActivity extends Activity {
 
         datasource.deleteMessage(intent.getStringExtra("id"));
         datasource.close();
-
     }
 
    @Override
