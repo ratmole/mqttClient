@@ -3,6 +3,7 @@ package net.ratmole.apps.mqtt;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.CursorIndexOutOfBoundsException;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -83,6 +84,7 @@ public class MessagesDataSource {
     }
 
     public String getMessage(String id) {
+        try {
             Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES, new String[] { MySQLiteHelper.COLUMN_ID,
                 MySQLiteHelper.COLUMN_MESSAGE }, MySQLiteHelper.COLUMN_ID + "=?",
                 new String[] { String.valueOf(id) }, null, null, null, null);
@@ -91,6 +93,10 @@ public class MessagesDataSource {
             cursor.moveToFirst();
 
         return cursor.getString(1);
+
+        } catch (CursorIndexOutOfBoundsException e){
+            return null;
+        }
 
         }
 

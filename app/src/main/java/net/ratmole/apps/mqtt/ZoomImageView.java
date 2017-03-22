@@ -6,12 +6,13 @@ import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.ImageView;
 
-public class TouchImageView extends ImageView {
+public class ZoomImageView extends ImageView {
     Matrix matrix;
     // We can be in one of these 3 states
     static final int NONE = 0;
@@ -40,12 +41,12 @@ public class TouchImageView extends ImageView {
 
     Context context;
 
-    public TouchImageView(Context context) {
+    public ZoomImageView(Context context) {
         super(context);
         sharedConstructing(context);
     }
 
-    public TouchImageView(Context context, AttributeSet attrs) {
+    public ZoomImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
         sharedConstructing(context);
     }
@@ -197,6 +198,7 @@ public class TouchImageView extends ImageView {
         }
 
     }
+
 
     void fixTrans() {
 

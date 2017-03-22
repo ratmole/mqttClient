@@ -131,13 +131,12 @@ public class MyListActivity extends ListActivity {
                 MyListActivity.this.startActivity(myIntent);
                 break;
             case "pic":
-                myIntent = new Intent(MyListActivity.this, MyPicActivity.class);
+                myIntent = new Intent(MyListActivity.this, MyPicActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);;
                 myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
                 break;
         }
 
-        values.remove(position);
         datasource.close();
 
         if ((values.size()) == 0){
