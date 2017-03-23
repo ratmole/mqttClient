@@ -10,9 +10,11 @@ import android.util.Base64;
 import android.view.Gravity;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 public class MyPicActivity extends Activity {
     public static final String 		DEBUG_TAG = "MqttService";
+    public int counter = 0;
 
     private MessagesDataSource datasource;
 
@@ -27,25 +29,46 @@ public class MyPicActivity extends Activity {
         datasource = new MessagesDataSource(this);
         datasource.open();
 
-        Intent intent = getIntent();
+        final Intent intent = getIntent();
 
-        String data = datasource.getMessage(intent.getStringExtra("id"));
 
-        if (intent.getStringExtra("Rid") != null){
-            if (datasource.getMessage(intent.getStringExtra("Rid")) != null){
-                data = datasource.getMessage(intent.getStringExtra("Rid"));
+        String data = datasource.getMessage(intent.getStringExtra("id"), "pic");
+
+        if (intent.hasExtra("Rid")){
+            if (datasource.getMessage(intent.getStringExtra("Rid"), "pic") != null){
+                data = datasource.getMessage(intent.getStringExtra("Rid"), "pic");
+            } else {
+                if (Integer.parseInt(intent.getStringExtra("id")) <= Integer.parseInt(intent.getStringExtra("Rid"))){
+                    Toast.makeText(getApplicationContext(), "No more pictures left, exiting.", Toast.LENGTH_SHORT).show();
+                    finish();
+                } else {
+                    Toast.makeText(getApplicationContext(), "Already at the first picture, swipe the other way!!!", Toast.LENGTH_SHORT).show();
+                    counter = 0;
+                    int vID = Integer.parseInt(intent.getStringExtra("id").toString()) + counter;
+                    getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
+                   }
+
             }
         }
 
-
-            byte[] decodedString = Base64.decode(data, Base64.DEFAULT);
-            final Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-
+            byte[] decodedString = null;
+            Bitmap decodedByte = null;
             ZoomImageView img = new ZoomImageView(this);
-            img.setImageBitmap(decodedByte);
-            img.setMaxZoom(4f);
 
+
+            try {
+                decodedString = Base64.decode(data, Base64.DEFAULT);
+                decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                img.setImageBitmap(decodedByte);
+
+            }catch (IllegalArgumentException e){
+                Bitmap bitmap = BitmapFactory.decodeResource(this.getResources(), R.drawable.bug_error);
+                img.setImageBitmap(bitmap);
+                }
+
+            img.setMaxZoom(4f);
             setContentView(img);
+
 
             FrameLayout.LayoutParams lpTop = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, 300);
             lpTop.gravity = Gravity.TOP;
@@ -58,40 +81,81 @@ public class MyPicActivity extends Activity {
             this.addContentView(VgestureView, lp);
 
             VgestureView.setOnTouchListener(new OnSwipeTouchListener(this) {
-                String ID = getIntent().getStringExtra("id");
-                int counter = 0;
 
                 @Override
                 public void onSwipeLeft() {
-                    counter++;
+
+                    Intent intentIn = getIntent();
+                    String ID = null;
+
+                    if (intent.hasExtra("Rid")){
+                        ID = intent.getStringExtra("Rid");
+                    } else if (intent.hasExtra("id")){
+                        ID = intent.getStringExtra("id");
+                    }
+
+                        counter++;
+
                     int vID = Integer.parseInt(ID.toString()) + counter;
                     getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
                     recreate();
                 }
 
                 public void onSwipeRight() {
-                    counter--;
+
+                    Intent intentIn = getIntent();
+                    String ID = null;
+
+                    if (intent.hasExtra("Rid")){
+                        ID = intent.getStringExtra("Rid");
+                    } else if (intent.hasExtra("id")){
+                        ID = intent.getStringExtra("id");
+                    }
+
+                        counter--;
+
                     int vID = Integer.parseInt(ID.toString()) + counter;
                     getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
                     recreate();
                 }
             });
         VgestureViewTop.setOnTouchListener(new OnSwipeTouchListener(this) {
-            String ID = getIntent().getStringExtra("id");
-            int counter = 0;
 
             @Override
             public void onSwipeLeft() {
-                counter++;
+
+                Intent intentIn = getIntent();
+                String ID = null;
+
+                if (intent.hasExtra("Rid")){
+                    ID = intent.getStringExtra("Rid");
+                } else if (intent.hasExtra("id")){
+                    ID = intent.getStringExtra("id");
+                }
+
+                    counter++;
+
                 int vID = Integer.parseInt(ID.toString()) + counter;
-                getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
+                intentIn.putExtra("Rid", String.valueOf(vID)); //Optional parameters
                 recreate();
             }
 
             public void onSwipeRight() {
-                counter--;
+
+                Intent intentIn = getIntent();
+                String ID = null;
+
+                if (intent.hasExtra("Rid")){
+                    ID = intent.getStringExtra("Rid");
+                } else if (intent.hasExtra("id")){
+                    ID = intent.getStringExtra("id");
+                }
+
+
+                    counter--;
+
                 int vID = Integer.parseInt(ID.toString()) + counter;
-                getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
+                intentIn.putExtra("Rid", String.valueOf(vID)); //Optional parameters
                 recreate();
             }
         });

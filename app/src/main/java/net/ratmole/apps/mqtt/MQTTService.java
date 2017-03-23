@@ -45,7 +45,7 @@ import java.util.Locale;
 public class MQTTService extends Service implements MqttCallback
 {
 
-	private static boolean logDebug = true;
+	private static boolean logDebug = false;
 
 
 	private static String PREFS = "mqtt-prefs";
@@ -367,7 +367,7 @@ public class MQTTService extends Service implements MqttCallback
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_SANITY);
 		PendingIntent pi = PendingIntent.getService(this, 1, i, 0);
-		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*1000), (MQTT_KEEP_ALIVE*1000), pi);
+		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*1000)*5, (MQTT_KEEP_ALIVE*1000)*5, pi);
 	}
 
 	private void sanityTimerStop() {

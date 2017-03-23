@@ -83,16 +83,16 @@ public class MessagesDataSource {
         return messages;
     }
 
-    public String getMessage(String id) {
+    public String getMessage(String id, String type) {
         try {
-            Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES, new String[] { MySQLiteHelper.COLUMN_ID,
-                MySQLiteHelper.COLUMN_MESSAGE }, MySQLiteHelper.COLUMN_ID + "=?",
-                new String[] { String.valueOf(id) }, null, null, null, null);
+            Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES, new String[] { MySQLiteHelper.COLUMN_ID, MySQLiteHelper.COLUMN_TYPE,
+                MySQLiteHelper.COLUMN_MESSAGE }, MySQLiteHelper.COLUMN_ID + "=?" +" AND " + MySQLiteHelper.COLUMN_TYPE + "=?" ,
+                new String[] { String.valueOf(id),String.valueOf(type) }, null, null, null, null);
 
         if (cursor != null)
             cursor.moveToFirst();
 
-        return cursor.getString(1);
+        return cursor.getString(2);
 
         } catch (CursorIndexOutOfBoundsException e){
             return null;

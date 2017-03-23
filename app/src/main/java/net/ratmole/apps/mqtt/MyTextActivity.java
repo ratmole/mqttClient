@@ -20,13 +20,12 @@ public class MyTextActivity extends Activity {
         datasource.open();
 
         Intent intent = getIntent();
-        String data = datasource.getMessage(intent.getStringExtra("id"));
+        String data = datasource.getMessage(intent.getStringExtra("id"), "text");
 
         TextView mqttData;
         mqttData = (TextView) findViewById(R.id.mqttMessage);
         mqttData.setText(data);
 
-        datasource.deleteMessage(intent.getStringExtra("id"));
         datasource.close();
     }
 

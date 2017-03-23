@@ -35,11 +35,16 @@ public class MySimpleArrayAdapter extends ArrayAdapter<Message> {
 
         String s = values.get(position).getType();
         if (s.contains("pic")) {
-            textView.setVisibility(View.GONE);
-            imageView.setImageResource(R.drawable.pic);
-            byte[] decodedString = Base64.decode(values.get(position).getMessage(), Base64.DEFAULT);
-            final Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            picView.setImageBitmap(decodedByte);
+            try {
+                textView.setVisibility(View.GONE);
+                imageView.setImageResource(R.drawable.pic);
+                byte[] decodedString = Base64.decode(values.get(position).getMessage(), Base64.DEFAULT);
+                final Bitmap decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+                picView.setImageBitmap(decodedByte);
+            }catch (IllegalArgumentException e){
+                Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.bug_error);
+                picView.setImageBitmap(bitmap);
+            }
         } else {
             textView.setText(values.get(position).getMessage());
             picView.setVisibility(View.GONE);
