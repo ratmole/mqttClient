@@ -54,6 +54,14 @@ public class MessagesDataSource {
         return newMessage;
     }
 
+    public void updateMessage(String id, int Status) {
+
+        ContentValues values=new ContentValues();
+        values.put(MySQLiteHelper.COLUMN_STATUS, Status);
+        database.update(MySQLiteHelper.TABLE_MESSAGES, values, MySQLiteHelper.COLUMN_ID + " = " + id, null);
+        System.out.println("Message with id: " + id +", status: "+Status);
+
+    }
 
     public void deleteMessage(String id) {
         //String id = message.getId();
@@ -65,8 +73,18 @@ public class MessagesDataSource {
         System.out.println("Messages Cleared!!!");
         database.delete(MySQLiteHelper.TABLE_MESSAGES, null, null);
     }
+    public int countUnreadMessages() {
 
-    public List<Message> getAllMessages() {
+        Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES,
+                allColumns, unRead, unReadArgs, null, null, null);
+
+        int cnt = cursor.getCount();
+        cursor.close();
+        return cnt;
+    }
+
+    public List<Message> getAllMessages(String[] unReadArgs) {
+
         List<Message> messages = new ArrayList<Message>();
 
         Cursor cursor = database.query(MySQLiteHelper.TABLE_MESSAGES,

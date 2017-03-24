@@ -3,6 +3,7 @@ package net.ratmole.apps.mqtt;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.widget.TextView;
 
 public class MyTextActivity extends Activity {
@@ -21,6 +22,8 @@ public class MyTextActivity extends Activity {
 
         Intent intent = getIntent();
         String data = datasource.getMessage(intent.getStringExtra("id"), "text");
+        datasource.updateMessage(intent.getStringExtra("id"),1);
+        informActivity();
 
         TextView mqttData;
         mqttData = (TextView) findViewById(R.id.mqttMessage);
@@ -38,6 +41,15 @@ public class MyTextActivity extends Activity {
   protected void onPause() {
     super.onPause();
   }
+
+    private void informActivity() {
+        Intent intent = new Intent("informActivity");
+        sendLocationBroadcast(intent);
+    }
+
+    private void sendLocationBroadcast(Intent intent){
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
 
 
 }

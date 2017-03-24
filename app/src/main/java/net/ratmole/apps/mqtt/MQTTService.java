@@ -38,7 +38,6 @@ import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.List;
 import java.util.Locale;
 
 
@@ -467,7 +466,10 @@ public class MQTTService extends Service implements MqttCallback
 		datasource = new MessagesDataSource(this);
 		datasource.open();
 		Message messageDB = datasource.createMessage(type,topic,message.toString(),"0");
-		final List<Message> values = datasource.getAllMessages();
+
+		//final List<Message> values = datasource.getAllMessages(new String[] { "0" });
+		int cnt = datasource.countUnreadMessages();
+
 		datasource.close();
 
 
@@ -475,7 +477,7 @@ public class MQTTService extends Service implements MqttCallback
 				.setVibrate(new long[]{500, 1000})
 				.setSmallIcon(R.drawable.m2mgreen)
 				.setLights(Color.BLUE, 1000, 1000)
-				.setContentTitle("You have " + values.size() + " unread msg's");
+				.setContentTitle("You have " + cnt + " unread msg's");
 
 		notifyIntent = new Intent(this, MyListActivity.class);
 		notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

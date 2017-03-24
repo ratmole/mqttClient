@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Base64;
 import android.view.Gravity;
 import android.widget.FrameLayout;
@@ -68,6 +69,13 @@ public class MyPicActivity extends Activity {
 
             img.setMaxZoom(4f);
             setContentView(img);
+
+            if (intent.hasExtra("Rid")){
+                datasource.updateMessage(intent.getStringExtra("Rid"),1);
+            } else if (intent.hasExtra("id")){
+                datasource.updateMessage(intent.getStringExtra("id"),1);
+            }
+            informActivity();
 
 
             FrameLayout.LayoutParams lpTop = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, 300);
@@ -172,6 +180,15 @@ public class MyPicActivity extends Activity {
   protected void onPause() {
     super.onPause();
   }
+
+    private void informActivity() {
+        Intent intent = new Intent("informActivity");
+        sendLocationBroadcast(intent);
+    }
+
+    private void sendLocationBroadcast(Intent intent){
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
 
 
 }

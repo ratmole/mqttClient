@@ -47,26 +47,48 @@ public class MyListActivity extends ListActivity {
         // Handle item selection
         switch (item.getItemId()) {
             case R.id.clearDB:
+                datasource = new MessagesDataSource(this);
+                datasource.open();
+
                 NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
                 notificationManager.cancel(99999999);
 
-                datasource = new MessagesDataSource(this);
-                datasource.open();
                 datasource.clearMessages();
                 values.clear();
 
                 if (adapter != null)
                     adapter.notifyDataSetChanged();
 
+                datasource.close();
                 return true;
+
             case R.id.settings:
+                datasource = new MessagesDataSource(this);
+                datasource.open();
+
                 Intent launchNewIntent = new Intent(this,SettingsActivity.class);
                 startActivityForResult(launchNewIntent, 0);
+                datasource.close();
+                return true;
+
+            case R.id.showHidden:
+                datasource = new MessagesDataSource(this);
+                datasource.open();
+
+                if (adapter != null){
+                    adapter.clear();
+                    values = datasource.getAllMessages(new String[] { "1" });
+                    adapter = new MySimpleArrayAdapter(getApplicationContext(), values);
+                    setListAdapter(adapter);
+                    adapter.notifyDataSetChanged();
+                }
+                datasource.close();
                 return true;
 
             default:
                 return super.onOptionsItemSelected(item);
         }
+
     }
 
     @Override
@@ -85,7 +107,7 @@ public class MyListActivity extends ListActivity {
             final Intent intent = new Intent(getApplicationContext(), MQTTService.class);
             startService(intent);
         } else {
-            Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port in Settings", Toast.LENGTH_LONG).show();
         }
 
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("informActivity"));
@@ -95,7 +117,7 @@ public class MyListActivity extends ListActivity {
         datasource = new MessagesDataSource(this);
         datasource.open();
 
-        values = datasource.getAllMessages();
+        values = datasource.getAllMessages(new String[] { "0" });
 
         adapter = new MySimpleArrayAdapter(this, values);
         setListAdapter(adapter);
@@ -110,11 +132,40 @@ public class MyListActivity extends ListActivity {
                 adapter.clear();
                 datasource = new MessagesDataSource(context);
                 datasource.open();
-                values = datasource.getAllMessages();
+
+                values = datasource.getAllMessages(new String[] { "0" });
                 adapter = new MySimpleArrayAdapter(context, values);
                 setListAdapter(adapter);
                 adapter.notifyDataSetChanged();
+
+                int cnt = datasource.countUnreadMessages();
                 datasource.close();
+
+                if ((cnt) == 0){
+                    NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+                    notificationManager.cancel(99999999);
+                } else {
+                    Notification.Builder n = new Notification.Builder(context)
+                            .setSmallIcon(R.drawable.m2mgreen)
+                            .setContentTitle("You have " + (cnt) + " unread msg's");
+
+                    intent = new Intent(context, MyListActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+                    PendingIntent notifyPendingIntent =
+                            PendingIntent.getActivity(
+                                    context,
+                                    (99999999),
+                                    intent,
+                                    PendingIntent.FLAG_UPDATE_CURRENT
+                            );
+
+                    n.setContentIntent(notifyPendingIntent);
+
+                    NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                    notificationManager.notify(99999999, n.build());
+                }
+
             }
         }
     };
@@ -122,8 +173,6 @@ public class MyListActivity extends ListActivity {
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
         Intent myIntent;
-        datasource.open();
-
         switch (values.get(position).getType()) {
             case "text":
                 myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
@@ -137,35 +186,6 @@ public class MyListActivity extends ListActivity {
                 break;
         }
 
-        datasource.close();
-
-        if ((values.size()) == 0){
-            NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.cancel(99999999);
-        } else {
-            Notification.Builder n = new Notification.Builder(this)
-                    .setSmallIcon(R.drawable.m2mgreen)
-                    .setContentTitle("You have " + (values.size()) + " unread msg's");
-
-            myIntent = new Intent(this, MyListActivity.class);
-            myIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-
-            PendingIntent notifyPendingIntent =
-                    PendingIntent.getActivity(
-                            this,
-                            (99999999),
-                            myIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT
-                    );
-
-            n.setContentIntent(notifyPendingIntent);
-
-            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            notificationManager.notify(99999999, n.build());
-        }
-
-        if (adapter != null)
-            adapter.notifyDataSetChanged();
     }
 
     @Override
