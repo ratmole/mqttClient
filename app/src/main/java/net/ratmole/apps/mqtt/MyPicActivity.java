@@ -4,190 +4,173 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Base64;
-import android.view.Gravity;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.util.List;
+
+
 public class MyPicActivity extends Activity {
-    public static final String 		DEBUG_TAG = "MqttService";
+    public static final String DEBUG_TAG = "MqttService";
+    public static List<ID> ids = null;
+
     public int counter = 0;
+    public int EXcounter = 0;
+    List<Message> IDS = null;
 
     private MessagesDataSource datasource;
 
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
 
-        ImageView VgestureView = new ImageView(this);
-        ImageView VgestureViewTop = new ImageView(this);
+
+
+        setContentView(R.layout.activity_pic);
+
+        final Intent intent = getIntent();
+        String ID = intent.getStringExtra("id");
+        boolean isHidden = intent.getBooleanExtra("isHidden",false);
+
+        TouchImageView image = (TouchImageView) findViewById(R.id.imageV);
+        image.setZoom(1);
 
         datasource = new MessagesDataSource(this);
         datasource.open();
 
-        final Intent intent = getIntent();
+        List<Message> values = null;
+        values = datasource.getMessage(ID, "pic");
+        String data = values.get(0).getMessage();
 
+        if (isHidden) {
+           ids = datasource.getMessageIDS("1", 2);
+        } else {
+           ids = datasource.getMessageIDS("0", 2);
+        }
 
-        String data = datasource.getMessage(intent.getStringExtra("id"), "pic");
-
-        if (intent.hasExtra("Rid")){
-            if (datasource.getMessage(intent.getStringExtra("Rid"), "pic") != null){
-                data = datasource.getMessage(intent.getStringExtra("Rid"), "pic");
-            } else {
-                if (Integer.parseInt(intent.getStringExtra("id")) <= Integer.parseInt(intent.getStringExtra("Rid"))){
-                    Toast.makeText(getApplicationContext(), "No more pictures left, exiting.", Toast.LENGTH_SHORT).show();
-                    finish();
-                } else {
-                    Toast.makeText(getApplicationContext(), "Already at the first picture, swipe the other way!!!", Toast.LENGTH_SHORT).show();
-                    counter = 0;
-                    int vID = Integer.parseInt(intent.getStringExtra("id").toString()) + counter;
-                    getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
-                   }
-
+        for(int i=0;i<ids.size();++i){
+            if (ids.get(i).getId().equals(ID)) {
+         //       System.out.println("Substring found in:"+i);
+                counter = i;
             }
         }
 
-            byte[] decodedString = null;
-            Bitmap decodedByte = null;
-            ZoomImageView img = new ZoomImageView(this);
+        byte[] decodedString = null;
+        Bitmap decodedByte = null;
 
+        try {
+            decodedString = Base64.decode(data, Base64.DEFAULT);
+            decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+            image.setImageBitmap(decodedByte);
 
-            try {
-                decodedString = Base64.decode(data, Base64.DEFAULT);
-                decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-                img.setImageBitmap(decodedByte);
+        } catch (IllegalArgumentException e) {
+            Bitmap bitmap = BitmapFactory.decodeResource(this.getResources(), R.drawable.bug_error);
+            image.setImageBitmap(bitmap);
+        }
 
-            }catch (IllegalArgumentException e){
-                Bitmap bitmap = BitmapFactory.decodeResource(this.getResources(), R.drawable.bug_error);
-                img.setImageBitmap(bitmap);
-                }
+        datasource.updateMessage(ID, 1);
+        datasource.close();
+        informService();
 
-            img.setMaxZoom(4f);
-            setContentView(img);
+        image.setOnTouchListener(new OnSwipeTouchListener(this) {
 
-            if (intent.hasExtra("Rid")){
-                datasource.updateMessage(intent.getStringExtra("Rid"),1);
-            } else if (intent.hasExtra("id")){
-                datasource.updateMessage(intent.getStringExtra("id"),1);
-            }
-            informActivity();
-
-
-            FrameLayout.LayoutParams lpTop = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, 300);
-            lpTop.gravity = Gravity.TOP;
-            VgestureViewTop.setBackgroundColor(Color.DKGRAY);
-            this.addContentView(VgestureViewTop, lpTop);
-
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, 300);
-            lp.gravity = Gravity.BOTTOM;
-            VgestureView.setBackgroundColor(Color.DKGRAY);
-            this.addContentView(VgestureView, lp);
-
-            VgestureView.setOnTouchListener(new OnSwipeTouchListener(this) {
-
-                @Override
-                public void onSwipeLeft() {
-
-                    Intent intentIn = getIntent();
-                    String ID = null;
-
-                    if (intent.hasExtra("Rid")){
-                        ID = intent.getStringExtra("Rid");
-                    } else if (intent.hasExtra("id")){
-                        ID = intent.getStringExtra("id");
-                    }
-
-                        counter++;
-
-                    int vID = Integer.parseInt(ID.toString()) + counter;
-                    getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
-                    recreate();
-                }
-
-                public void onSwipeRight() {
-
-                    Intent intentIn = getIntent();
-                    String ID = null;
-
-                    if (intent.hasExtra("Rid")){
-                        ID = intent.getStringExtra("Rid");
-                    } else if (intent.hasExtra("id")){
-                        ID = intent.getStringExtra("id");
-                    }
-
-                        counter--;
-
-                    int vID = Integer.parseInt(ID.toString()) + counter;
-                    getIntent().putExtra("Rid", String.valueOf(vID)); //Optional parameters
-                    recreate();
-                }
-            });
-        VgestureViewTop.setOnTouchListener(new OnSwipeTouchListener(this) {
 
             @Override
             public void onSwipeLeft() {
+                counter++;
+                try {
 
-                Intent intentIn = getIntent();
-                String ID = null;
-
-                if (intent.hasExtra("Rid")){
-                    ID = intent.getStringExtra("Rid");
-                } else if (intent.hasExtra("id")){
-                    ID = intent.getStringExtra("id");
-                }
-
-                    counter++;
-
-                int vID = Integer.parseInt(ID.toString()) + counter;
-                intentIn.putExtra("Rid", String.valueOf(vID)); //Optional parameters
-                recreate();
+                    showPic(String.valueOf(ids.get(counter).getId()));
+                }catch (ArrayIndexOutOfBoundsException e){
+                    counter--;
+                    Toast.makeText(getApplicationContext(), "No pictures left, swipe right...", Toast.LENGTH_SHORT).show();
+                }catch (IndexOutOfBoundsException e) {
+                    counter--;
+                    Toast.makeText(getApplicationContext(), "No pictures left, swipe right...", Toast.LENGTH_SHORT).show();
+                    }
             }
 
             public void onSwipeRight() {
-
-                Intent intentIn = getIntent();
-                String ID = null;
-
-                if (intent.hasExtra("Rid")){
-                    ID = intent.getStringExtra("Rid");
-                } else if (intent.hasExtra("id")){
-                    ID = intent.getStringExtra("id");
+                counter--;
+                try {
+                    showPic(String.valueOf(ids.get(counter).getId()));
+                }catch (ArrayIndexOutOfBoundsException e){
+                    counter++;
+                    Toast.makeText(getApplicationContext(), "Already at first image, swipe left...", Toast.LENGTH_SHORT).show();
+                }catch (IndexOutOfBoundsException e) {
+                    counter++;
+                    Toast.makeText(getApplicationContext(), "Already at first image, swipe left...", Toast.LENGTH_SHORT).show();
                 }
-
-
-                    counter--;
-
-                int vID = Integer.parseInt(ID.toString()) + counter;
-                intentIn.putExtra("Rid", String.valueOf(vID)); //Optional parameters
-                recreate();
             }
         });
 
-            datasource.close();
     }
 
-   @Override
-  protected void onResume() {
-    super.onResume();
-  }
+    private void showPic(String Pid) {
+        ImageView image = (ImageView) findViewById(R.id.imageV);
 
-  @Override
-  protected void onPause() {
-    super.onPause();
-  }
+        datasource = new MessagesDataSource(getApplicationContext());
+        datasource.open();
 
-    private void informActivity() {
-        Intent intent = new Intent("informActivity");
-        sendLocationBroadcast(intent);
+        List<Message> values = null;
+        values = datasource.getMessage(Pid, "pic");
+        String data = values.get(0).getMessage();
+
+//        String data = datasource.getMessage(Pid, "pic");
+        datasource.updateMessage(Pid, 1);
+        datasource.close();
+        informService();
+        byte[] decodedString = null;
+        Bitmap decodedByte = null;
+
+        try {
+            decodedString = Base64.decode(data, Base64.DEFAULT);
+            decodedByte = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+            image.setImageBitmap(decodedByte);
+            EXcounter = 0;
+
+
+        } catch (IllegalArgumentException e) {
+            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.bug_error);
+            image.setImageBitmap(bitmap);
+        }
+        catch (NullPointerException e) {
+                Toast.makeText(getApplicationContext(), "No pictures left.Exiting...", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+
+
     }
 
-    private void sendLocationBroadcast(Intent intent){
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        finish();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        finish();
+    }
+
+    private void sendLocationBroadcast(Intent intent) {
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
+    private void informService() {
+     //   Log.d("MQTT", "Informing Service from Activity");
+        Intent intent = new Intent("informService");
+        sendLocationBroadcast(intent);
     }
 
 

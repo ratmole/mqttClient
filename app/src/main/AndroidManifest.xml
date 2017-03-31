@@ -25,6 +25,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
         <receiver
             android:name="net.ratmole.apps.mqtt.BootReceiver"
@@ -47,7 +48,6 @@
         </service>
         <activity
             android:name=".MyTextActivity"
-            android:theme="@style/custumStyleDialog"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:excludeFromRecents="true">

@@ -1,9 +1,6 @@
 package net.ratmole.apps.mqtt;
 
 import android.app.ListActivity;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,16 +8,19 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import java.util.List;
+//public class MyListActivity extends ListActivity  {
 
-public class MyListActivity extends ListActivity {
+
+public class MyListActivity extends ListActivity implements AbsListView.OnScrollListener {
     public static final String DEBUG_TAG = "MqttService";
     private static String PREFS = "mqtt-prefs";
 
@@ -29,8 +29,13 @@ public class MyListActivity extends ListActivity {
     private static String USERNAME = "-Username";
     private static String PASSWORD = "-Password";
     private static String PORT = "-Port";
+    int mPrevTotalItemCount = 0;
+    int Count = 0;
+    boolean isHidden = false;
 
     List<Message> values = null;
+    List<Message> valuesNew = null;
+
     private MySimpleArrayAdapter adapter;
 
     private MessagesDataSource datasource;
@@ -42,17 +47,64 @@ public class MyListActivity extends ListActivity {
         return true;
     }
 
+    public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+
+        if (adapter != null && ((firstVisibleItem + visibleItemCount) >= totalItemCount) && totalItemCount != mPrevTotalItemCount && totalItemCount > 0) {
+
+
+            mPrevTotalItemCount = totalItemCount;
+
+
+            int remaining = Count-totalItemCount;
+            int range = 10;
+            if (remaining < 10){
+                range = remaining;
+            }
+
+            int type = getIntent().getIntExtra("type", 0);
+            String cType = null;
+
+            if (type == 0 ) {
+                 cType = "all";
+            } else if (type == 1){
+                 cType = "text";
+            } else if (type == 2){
+                 cType = "pic";
+            }
+
+            datasource = new MessagesDataSource(this);
+            datasource.open();
+
+            if (range < 0)
+                return;
+
+            if (isHidden) {
+                valuesNew = datasource.getNextMessages("1", String.valueOf(totalItemCount - 1) + "," + String.valueOf(range), cType);
+            } else{
+                valuesNew = datasource.getNextMessages("0", String.valueOf(totalItemCount - 1) + "," + String.valueOf(range), cType);
+                }
+
+                adapter.addAll(valuesNew);
+                adapter.notifyDataSetChanged();
+                //setListAdapter(adapter);
+                getListView().setOnScrollListener(this);
+                datasource.close();
+
+        }
+    }
+
+
+    public void onScrollStateChanged(AbsListView v, int s) { }
+
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection
         switch (item.getItemId()) {
             case R.id.clearDB:
+                isHidden = false;
                 datasource = new MessagesDataSource(this);
                 datasource.open();
-
-                NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-                notificationManager.cancel(99999999);
-
                 datasource.clearMessages();
                 values.clear();
 
@@ -60,15 +112,15 @@ public class MyListActivity extends ListActivity {
                     adapter.notifyDataSetChanged();
 
                 datasource.close();
+                informService();
                 return true;
 
             case R.id.settings:
-                datasource = new MessagesDataSource(this);
-                datasource.open();
+                isHidden = false;
 
                 Intent launchNewIntent = new Intent(this,SettingsActivity.class);
                 startActivityForResult(launchNewIntent, 0);
-                datasource.close();
+
                 return true;
 
             case R.id.showHidden:
@@ -76,11 +128,15 @@ public class MyListActivity extends ListActivity {
                 datasource.open();
 
                 if (adapter != null){
+                    isHidden = true;
                     adapter.clear();
-                    values = datasource.getAllMessages(new String[] { "1" });
+                    values = datasource.getAllMessages("1", 0);
+                    Count = datasource.countAllMessages();
                     adapter = new MySimpleArrayAdapter(getApplicationContext(), values);
                     setListAdapter(adapter);
                     adapter.notifyDataSetChanged();
+                    setListAdapter(adapter);
+                    getListView().setOnScrollListener(this);
                 }
                 datasource.close();
                 return true;
@@ -96,93 +152,69 @@ public class MyListActivity extends ListActivity {
         super.onCreate(savedInstanceState);
         final SharedPreferences sharedPref = this.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
-        String sHostname, sTopic, sUsername, sPassword, sPort;
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("informActivity"));
+
+        String sHostname, sTopic, sPort;
 
         sHostname	= sharedPref.getString(HOSTNAME, "");
         sTopic		= sharedPref.getString(TOPIC,"");
-        sUsername	= sharedPref.getString(USERNAME, "");
-        sPassword	= sharedPref.getString(PASSWORD, "");
         sPort		= sharedPref.getString(PORT, "");
+
         if (	sHostname.length() > 0	&& sTopic.length() 	> 0	&& sPort.length() > 0){
             final Intent intent = new Intent(getApplicationContext(), MQTTService.class);
             startService(intent);
         } else {
-            Toast.makeText(getApplicationContext(), "Please Fill Hostname, Topic and Port in Settings", Toast.LENGTH_LONG).show();
+            Intent launchNewIntent = new Intent(this,SettingsActivity.class);
+            startActivityForResult(launchNewIntent, 0);
         }
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("informActivity"));
 
-        setContentView(R.layout.activity_list);
-
+        int type = getIntent().getIntExtra("type", 0);
         datasource = new MessagesDataSource(this);
         datasource.open();
 
-        values = datasource.getAllMessages(new String[] { "0" });
+        String cType = null;
 
-        adapter = new MySimpleArrayAdapter(this, values);
-        setListAdapter(adapter);
-        datasource.close();
+        if (type == 0 ) {
+                Count = datasource.countUnreadMessages("all");
+            } else if (type == 1){
+                Count = datasource.countUnreadMessages("text");
+            } else if (type == 2){
+                Count = datasource.countUnreadMessages("pic");
+            }
+
+            setContentView(R.layout.activity_list);
+
+            values = datasource.getAllMessages("0", type);
+            datasource.close();
+
+
+            adapter = new MySimpleArrayAdapter(this, values);
+            setListAdapter(adapter);
+            getListView().setOnScrollListener(this);
+
     }
 
-    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
 
-            if (adapter != null){
-                adapter.clear();
-                datasource = new MessagesDataSource(context);
-                datasource.open();
-
-                values = datasource.getAllMessages(new String[] { "0" });
-                adapter = new MySimpleArrayAdapter(context, values);
-                setListAdapter(adapter);
-                adapter.notifyDataSetChanged();
-
-                int cnt = datasource.countUnreadMessages();
-                datasource.close();
-
-                if ((cnt) == 0){
-                    NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-                    notificationManager.cancel(99999999);
-                } else {
-                    Notification.Builder n = new Notification.Builder(context)
-                            .setSmallIcon(R.drawable.m2mgreen)
-                            .setContentTitle("You have " + (cnt) + " unread msg's");
-
-                    intent = new Intent(context, MyListActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-
-                    PendingIntent notifyPendingIntent =
-                            PendingIntent.getActivity(
-                                    context,
-                                    (99999999),
-                                    intent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT
-                            );
-
-                    n.setContentIntent(notifyPendingIntent);
-
-                    NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-                    notificationManager.notify(99999999, n.build());
-                }
-
-            }
-        }
-    };
 
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
         Intent myIntent;
+        Log.d("pos",""+position);
         switch (values.get(position).getType()) {
             case "text":
                 myIntent = new Intent(MyListActivity.this, MyTextActivity.class);
                 myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
+                myIntent.putExtra("isHidden", isHidden); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
+                finish();
                 break;
             case "pic":
                 myIntent = new Intent(MyListActivity.this, MyPicActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);;
                 myIntent.putExtra("id", values.get(position).getId()); //Optional parameters
+                myIntent.putExtra("isHidden", isHidden); //Optional parameters
                 MyListActivity.this.startActivity(myIntent);
+                finish();
                 break;
         }
 
@@ -191,12 +223,56 @@ public class MyListActivity extends ListActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        finish();
     }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        List<Message> values = null;
+        List<Message> valuesNew = null;
+        MySimpleArrayAdapter adapter = null;
+        MessagesDataSource datasource = null;
+
+        finish();
+    }
+
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+
+        @Override
+
+        public void onReceive(Context context, Intent intent) {
+          //  Log.d("MQTT","Activity Informed from Service");
+            String newMessageID = intent.getStringExtra("newMessageID");
+
+            datasource = new MessagesDataSource(context);
+            datasource.open();
+
+            if (adapter != null){
+                List<Message> newMessagevalue = null;
+                newMessagevalue = datasource.getMessage(newMessageID, "all");
+                adapter.addAll(newMessagevalue);
+                adapter.notifyDataSetChanged();
+            }
+            datasource.close();
+        }
+
+    };
+
+    private void sendLocationBroadcast(Intent intent) {
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
+    private void informService() {
+       // Log.d("MQTT", "Informing Service from Activity");
+        Intent intent = new Intent("informService");
+        sendLocationBroadcast(intent);
+    }
+
 
 }

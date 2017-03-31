@@ -102,6 +102,7 @@ public class MQTTService extends Service implements MqttCallback
 	private AlarmManager mAlarmManager;
 	private ConnectivityManager mConnectivityManager;
 	Notification n = null;
+	public boolean status = false;
 
 	public static void actionStart(Context ctx) {
 		Intent i = new Intent(ctx,MQTTService.class);
@@ -131,6 +132,8 @@ public class MQTTService extends Service implements MqttCallback
 		mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
 
 		mDeviceId = String.format(DEVICE_ID_FORMAT, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));
+		LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter("informService"));
+
 
 		vHostname	= sharedPref.getString(sHOSTNAME, "");
 		vTopic		= sharedPref.getString(sTOPIC,"");
@@ -297,7 +300,8 @@ public class MQTTService extends Service implements MqttCallback
 					mStarted = false;
 
 					sanityTimerStop();
-					statusIcon(false);
+					status = false;
+					statusIcon(status);
 				}
 			});
 		}
@@ -345,7 +349,8 @@ public class MQTTService extends Service implements MqttCallback
 					mClient.setCallback(MQTTService.this);
 
 					mStarted = true; // Service is now connected
-					statusIcon(true);
+					status = true;
+					statusIcon(status);
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed");
 
 					isReconnecting = false;
@@ -381,6 +386,7 @@ public class MQTTService extends Service implements MqttCallback
 	 * and reconnects if it is required.
 	 */
 	private synchronized void reconnectIfNecessary() {
+		status = false;
 		statusIcon(false);
 		if(mStarted && mClient == null) {
 			connect();
@@ -420,7 +426,8 @@ public class MQTTService extends Service implements MqttCallback
 	private final BroadcastReceiver mConnectivityReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			statusIcon(false);
+			status = false;
+			statusIcon(status);
 			}
 	};
 
@@ -435,6 +442,7 @@ public class MQTTService extends Service implements MqttCallback
 	@Override
 	public void connectionLost(Throwable arg0) {
 		mClient = null;
+		status = false;
 		statusIcon(false);
 
 		if(isNetworkAvailable()) {
@@ -456,7 +464,6 @@ public class MQTTService extends Service implements MqttCallback
 	public void messageArrived(String topic, MqttMessage message)
 			throws Exception {
 
-		Intent notifyIntent = null;
 		String type = "text";
 
 		if (topic.toLowerCase().contains("pic")) {
@@ -466,52 +473,54 @@ public class MQTTService extends Service implements MqttCallback
 		datasource = new MessagesDataSource(this);
 		datasource.open();
 		Message messageDB = datasource.createMessage(type,topic,message.toString(),"0");
-
-		//final List<Message> values = datasource.getAllMessages(new String[] { "0" });
-		int cnt = datasource.countUnreadMessages();
-
 		datasource.close();
+		status = true;
+		statusIcon(status);
+		informActivity(messageDB.getId());
 
-
-		Notification.Builder n = new Notification.Builder(this)
-				.setVibrate(new long[]{500, 1000})
-				.setSmallIcon(R.drawable.m2mgreen)
-				.setLights(Color.BLUE, 1000, 1000)
-				.setContentTitle("You have " + cnt + " unread msg's");
-
-		notifyIntent = new Intent(this, MyListActivity.class);
-		notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-
-		PendingIntent notifyPendingIntent =
-				PendingIntent.getActivity(
-						this,
-						99999999,
-						notifyIntent,
-						PendingIntent.FLAG_UPDATE_CURRENT
-				);
-
-		n.setContentIntent(notifyPendingIntent);
-
-		NotificationManager notificationManager =(NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-		notificationManager.notify(99999999, n.build());
-		informActivity();
 	}
 
+
 	public void statusIcon(boolean status){
+		datasource = new MessagesDataSource(this);
+		datasource.open();
+		int textCount = datasource.countUnreadMessages("text");
+		int picCount = datasource.countUnreadMessages("pic");
+		datasource.close();
 
 		Intent intent = new Intent(this, MQTTService.class);
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, 0);
+
+		Intent ViewTextIntent = new Intent(this, MyListActivity.class);
+		ViewTextIntent.putExtra("type", 1);
+		ViewTextIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+		Intent ViewPicIntent = new Intent(this, MyListActivity.class);
+		ViewPicIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		ViewPicIntent.putExtra("type", 2);
+
+		//PendingIntent actionPendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+		PendingIntent actionViewTextMessages = PendingIntent.getActivity(this, 1, ViewTextIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+		PendingIntent actionViewPicMessages = PendingIntent.getActivity(this, 2, ViewPicIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
 		if (status) {
 			intent.setAction(ACTION_STOP);
 			PendingIntent actionPendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
+
 			n = new Notification.Builder(this)
-					.setContentTitle("MQTT Active")
-					.setContentIntent(pIntent)
-					.addAction(android.R.drawable.presence_offline, "Disconnect", actionPendingIntent)
-					.setSmallIcon(R.drawable.m2mgreen)
-					.setAutoCancel(false).build();
+							.setContentTitle("MQTT Active")
+							.setContentIntent(pIntent)
+							//.setVibrate(new long[]{500, 1000})
+							//.setLights(Color.BLUE, 1000, 1000)
+							.addAction(android.R.drawable.presence_offline, "Disconnect", actionPendingIntent)
+							.addAction(android.R.drawable.presence_offline, picCount + " Pictures", actionViewPicMessages)
+							.addAction(android.R.drawable.presence_offline, textCount + " Text", actionViewTextMessages)
+							.setSmallIcon(R.drawable.m2mgreen)
+							.setAutoCancel(false).build();
+
+
 		} else {
 			intent.setAction(ACTION_START);
 			PendingIntent actionPendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -519,6 +528,9 @@ public class MQTTService extends Service implements MqttCallback
 			if (isReconnecting){
 				n = new Notification.Builder(this)
 						.setContentTitle("MQTT Auto Reconnecting...")
+						.addAction(android.R.drawable.presence_offline, picCount + " Pictures", actionViewPicMessages)
+						.addAction(android.R.drawable.presence_offline, textCount + " Text", actionViewTextMessages)
+						.setLights(Color.RED, 1000, 1000)
 						.setContentIntent(pIntent)
 						.setSmallIcon(R.drawable.m2mgrey)
 						.setAutoCancel(false).build();
@@ -526,9 +538,12 @@ public class MQTTService extends Service implements MqttCallback
 
 				n = new Notification.Builder(this)
 						.setContentTitle("MQTT Inactive")
+						.setLights(Color.RED, 1000, 1000)
 						.setContentIntent(pIntent)
 						.setSmallIcon(R.drawable.m2mgrey)
 						.addAction(android.R.drawable.presence_online, "Connect", actionPendingIntent)
+						.addAction(android.R.drawable.presence_offline, picCount + " Pictures", actionViewPicMessages)
+						.addAction(android.R.drawable.presence_offline, textCount + " Text", actionViewTextMessages)
 						.setAutoCancel(false).build();
 			}
 		}
@@ -551,7 +566,8 @@ public class MQTTService extends Service implements MqttCallback
 
 		mClient = null;
 		mStarted = false;
-		statusIcon(false);
+		status = false;
+		statusIcon(status);
 		if (MQTT_BROKER.length() > 0) {
 			new Connection().execute();
 			while (!isbPortOpen){
@@ -611,16 +627,30 @@ public class MQTTService extends Service implements MqttCallback
 
 	}
 
+	private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
 
+		@Override
 
-	private void informActivity() {
-		Intent intent = new Intent("informActivity");
-		sendLocationBroadcast(intent);
-	}
+		public void onReceive(Context context, Intent intent) {
+		//	Log.d("MQTT","Service Informed from Activity");
+			statusIcon(status);
+		}
 
-	private void sendLocationBroadcast(Intent intent){
+	};
+
+	private void sendLocationBroadcast(Intent intent) {
 		LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
 	}
+
+	private void informActivity(String ID) {
+		//Log.d("MQTT", "Informing Activity from Service");
+
+		Intent intent = new Intent("informActivity");
+		intent.putExtra("newMessageID", ID);
+		sendLocationBroadcast(intent);
+
+	}
+
 
 
 
