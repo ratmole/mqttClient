@@ -477,6 +477,7 @@ public class MQTTService extends Service implements MqttCallback
 		status = true;
 		statusIcon(status);
 		informActivity(messageDB.getId());
+		Light();
 
 	}
 
@@ -649,6 +650,19 @@ public class MQTTService extends Service implements MqttCallback
 		intent.putExtra("newMessageID", ID);
 		sendLocationBroadcast(intent);
 
+	}
+
+	private void Light()
+	{
+		n = new Notification.Builder(this)
+				.setVibrate(new long[]{500, 1000})
+				.setLights(Color.BLUE, 1000, 1000)
+				.build();
+
+		n.flags |= Notification.FLAG_SHOW_LIGHTS | Notification.FLAG_ONGOING_EVENT;
+
+		NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+		notificationManager.notify(-11, n);
 	}
 
 
