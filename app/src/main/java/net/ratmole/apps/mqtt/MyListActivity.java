@@ -86,7 +86,6 @@ public class MyListActivity extends ListActivity implements AbsListView.OnScroll
 
                 adapter.addAll(valuesNew);
                 adapter.notifyDataSetChanged();
-                //setListAdapter(adapter);
                 getListView().setOnScrollListener(this);
                 datasource.close();
 
@@ -234,11 +233,6 @@ public class MyListActivity extends ListActivity implements AbsListView.OnScroll
     @Override
     protected void onStop() {
         super.onStop();
-        List<Message> values = null;
-        List<Message> valuesNew = null;
-        MySimpleArrayAdapter adapter = null;
-        MessagesDataSource datasource = null;
-
         finish();
     }
 
