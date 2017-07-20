@@ -13,7 +13,6 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -35,16 +34,13 @@ import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 
-import java.net.ConnectException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.Locale;
 
 
 public class MQTTService extends Service implements MqttCallback
 {
 
-	private static boolean logDebug = false;
+	private static boolean logDebug = true;
 
 
 	private static String PREFS = "mqtt-prefs";
@@ -67,7 +63,7 @@ public class MQTTService extends Service implements MqttCallback
 	public static final int			MQTT_QOS_0 = 0; // QOS Level 0 ( Delivery Once no confirmation )
 	public static final int 		MQTT_QOS_1 = 1; // QOS Level 1 ( Delevery at least Once with confirmation )
 	public static final int			MQTT_QOS_2 = 2; // QOS Level 2 ( Delivery only once with confirmation with handshake )
-	private static final int 		MQTT_KEEP_ALIVE = 120;
+	private static final int 		MQTT_KEEP_ALIVE = 300;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
 	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
@@ -223,8 +219,12 @@ public class MQTTService extends Service implements MqttCallback
 					}
 				}
 
-				if (action.equals(ACTION_SANITY) && (intent.getFlags() != 4)) {
+				//if (action.equals(ACTION_SANITY) && (intent.getFlags() != 4)) {
+				if (action.equals(ACTION_SANITY)) {
+
+					if (logDebug) Log.i(DEBUG_TAG, "Received ACTION SANITY");
 					if (isNetworkAvailable() && !isConnected()) {
+						if (logDebug) Log.i(DEBUG_TAG, "Received ACTION SANITY FORCE");
 						forceReconnect();
 					}
 				}
@@ -323,6 +323,7 @@ public class MQTTService extends Service implements MqttCallback
 				mClient = new MqttClient(url,mDeviceId,mMemStore);
 			}
 		} catch(MqttException e) {
+			sanityTimerStart();
 			e.printStackTrace();
 		}
 
@@ -342,7 +343,10 @@ public class MQTTService extends Service implements MqttCallback
 					for (String topic : topics) {
 
 						if (topic != null) {
-							mClient.subscribe(topic, 2);
+                            if (!mClient.isConnected()){
+                                mClient.connect(mOpts);
+                            }
+							mClient.subscribe(topic, MQTT_KEEP_ALIVE_QOS);
 						}
 					}
 
@@ -352,14 +356,15 @@ public class MQTTService extends Service implements MqttCallback
 					status = true;
 					statusIcon(status);
 					Log.i(DEBUG_TAG, "Successfully connected and subscribed");
-
+					sanityTimerStop();
 					isReconnecting = false;
 
 				} catch (Exception e) {
+					sanityTimerStart();
 					e.printStackTrace();
-					forceReconnect();
+					//forceReconnect();
 				}
-				sanityTimerStart();
+
 
 			}
 		});
@@ -370,15 +375,18 @@ public class MQTTService extends Service implements MqttCallback
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
 		i.setAction(ACTION_SANITY);
-		PendingIntent pi = PendingIntent.getService(this, 1, i, 0);
-		mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*1000)*5, (MQTT_KEEP_ALIVE*1000)*5, pi);
+		PendingIntent pi = PendingIntent.getService(this, 1, i, PendingIntent.FLAG_CANCEL_CURRENT);
+		mAlarmManager.setInexactRepeating(AlarmManager.RTC, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*1000)/5, (MQTT_KEEP_ALIVE*1000)/5, pi);
 	}
 
 	private void sanityTimerStop() {
 		Intent i = new Intent();
 		i.setClass(this, MQTTService.class);
-		PendingIntent pi = PendingIntent.getService(this, 1, i , 0);
-		mAlarmManager.cancel(pi);
+        i.setAction(ACTION_SANITY);
+        PendingIntent pi = PendingIntent.getService(this, 1, i , PendingIntent.FLAG_CANCEL_CURRENT);
+        //mAlarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + (MQTT_KEEP_ALIVE*10), (MQTT_KEEP_ALIVE*10), pi);
+        mAlarmManager.cancel(pi);
+
 	}
 
 	/**
@@ -558,7 +566,14 @@ public class MQTTService extends Service implements MqttCallback
 
 	private void forceReconnect(){
 
+        if (datasource != null) {
+            datasource.close();
+        }
+
+        sanityTimerStart();
+
 		if (isConnected()){
+			sanityTimerStop();
 			return;
 		}
 
@@ -570,17 +585,9 @@ public class MQTTService extends Service implements MqttCallback
 		status = false;
 		statusIcon(status);
 		if (MQTT_BROKER.length() > 0) {
-			new Connection().execute();
-			while (!isbPortOpen){
-				try {
-					Log.i(DEBUG_TAG, "Server Unreachable!!! Sleeping for " + (MQTT_KEEP_ALIVE / 4) + " seconds");
-					Thread.sleep(MQTT_KEEP_ALIVE / 4);
-					new Connection().execute();
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
+            if (isConnected()) {
+                stop();
+            }
 			start();
 		}
 	}
@@ -592,41 +599,6 @@ public class MQTTService extends Service implements MqttCallback
 		private static final long serialVersionUID = -1234567890123456780L;
 	}
 
-	private class Connection extends AsyncTask {
-
-		@Override
-		protected Object doInBackground(Object... arg0) {
-			if (isPortOpen(MQTT_BROKER, Integer.parseInt(MQTT_PORT), 3000)){
-				isbPortOpen = true;
-			} else {
-				isbPortOpen = false;
-			}
-			return null;
-		}
-
-		public  boolean isPortOpen(final String ip, final int port, final int timeout) {
-			try {
-				Socket socket = new Socket();
-				socket.connect(new InetSocketAddress(ip, port), timeout);
-				socket.close();
-				isbPortOpen = true;
-				return true;
-			}
-
-			catch(ConnectException ce){
-				ce.printStackTrace();
-				isbPortOpen = false;
-				return false;
-			}
-
-			catch (Exception ex) {
-				ex.printStackTrace();
-				isbPortOpen = false;
-				return false;
-			}
-		}
-
-	}
 
 	private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
 

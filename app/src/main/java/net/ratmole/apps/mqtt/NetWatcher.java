@@ -7,10 +7,6 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 
-import java.net.ConnectException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-
 public class NetWatcher extends BroadcastReceiver {
 
     public static final String DEBUG_TAG = "MqttService"; // Debug TAG

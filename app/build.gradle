@@ -22,4 +22,4 @@ dependencies {
     compile 'com.android.support:support-v4:23.0.1'
     compile files('libs/org.eclipse.paho.client.mqttv3-1.0.2.jar')
     compile 'com.google.android.gms:play-services:8.1.0'
-}
+    }
