@@ -40,7 +40,7 @@ import java.util.Locale;
 public class MQTTService extends Service implements MqttCallback
 {
 
-	private static boolean logDebug = true;
+	private static boolean logDebug = false;
 
 
 	private static String PREFS = "mqtt-prefs";
