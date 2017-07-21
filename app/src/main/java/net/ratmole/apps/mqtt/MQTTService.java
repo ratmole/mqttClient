@@ -66,7 +66,7 @@ public class MQTTService extends Service implements MqttCallback
 	private static final int 		MQTT_KEEP_ALIVE = 300;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
-	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_1;
+	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
 
 	public boolean isbPortOpen = false;
 	private static final boolean 	MQTT_CLEAN_SESSION = false;
@@ -537,6 +537,7 @@ public class MQTTService extends Service implements MqttCallback
 			if (isReconnecting){
 				n = new Notification.Builder(this)
 						.setContentTitle("MQTT Auto Reconnecting...")
+						.addAction(android.R.drawable.presence_online, "Connect", actionPendingIntent)
 						.addAction(android.R.drawable.presence_offline, picCount + " Pictures", actionViewPicMessages)
 						.addAction(android.R.drawable.presence_offline, textCount + " Text", actionViewTextMessages)
 						.setLights(Color.RED, 1000, 1000)
@@ -578,7 +579,7 @@ public class MQTTService extends Service implements MqttCallback
 		}
 
 		isReconnecting = true;
-		if (logDebug)  Log.i(DEBUG_TAG, "connection lost, Reconnecting (forceReconnect)");
+		Log.i(DEBUG_TAG, "connection lost, Reconnecting");
 
 		mClient = null;
 		mStarted = false;
