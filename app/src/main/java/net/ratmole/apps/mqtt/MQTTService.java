@@ -66,7 +66,7 @@ public class MQTTService extends Service implements MqttCallback
 	private static final int 		MQTT_KEEP_ALIVE = 300;
 	private static final String		MQTT_KEEP_ALIVE_TOPIC_FORMAT = "/users/%s/keepalive";
 	private static final byte[] 	MQTT_KEEP_ALIVE_MESSAGE = { 0 };
-	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_2;
+	private static final int		MQTT_KEEP_ALIVE_QOS = MQTT_QOS_1;
 
 	public boolean isbPortOpen = false;
 	private static final boolean 	MQTT_CLEAN_SESSION = false;
